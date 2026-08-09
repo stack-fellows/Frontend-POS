@@ -1,0 +1,180 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../main/generated/client"
+}
+
+model Product {
+  id          String           @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  imageUrl    String?
+  bgColor     String?
+  textColor   String?
+  status      String           @default("ACTIVE")
+  variants    ProductVariant[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ProductVariant {
+  id                String             @id @default(uuid())
+  productId         String
+  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name              String // e.g. "Small", "Medium", "Large"
+  price             Float
+  sku               String             @unique
+  recipeIngredients RecipeIngredient[]
+  orderItems        OrderItem[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model ModifierGroup {
+  id          String     @id @default(uuid())
+  name        String // e.g. "Milk Options", "Syrups"
+  minSelected Int        @default(0)
+  maxSelected Int        @default(1)
+  modifiers   Modifier[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Modifier {
+  id                String              @id @default(uuid())
+  groupId           String
+  group             ModifierGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name              String // e.g. "Oat Milk", "Vanilla Syrup"
+  price             Float               @default(0.00)
+  recipeIngredients RecipeIngredient[] // Modifiers can also consume stock!
+  itemModifiers     OrderItemModifier[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+}
+
+model InventoryStock {
+  id                String             @id @default(uuid())
+  ingredientName    String             @unique // e.g. "Coffee Beans (g)", "Whole Milk (ml)"
+  quantity          Float // Current stock level
+  minThreshold      Float // Trigger warning if stock goes below
+  recipeIngredients RecipeIngredient[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model RecipeIngredient {
+  id               String          @id @default(uuid())
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  modifierId       String?
+  modifier         Modifier?       @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+  inventoryStockId String
+  inventoryStock   InventoryStock  @relation(fields: [inventoryStockId], references: [id], onDelete: Cascade)
+  amountRequired   Float // Deductible amount per unit order (g/ml/units)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model Order {
+  id               String        @id @default(uuid())
+  orderNumber      String        @unique // Semantic: BR01-T01-YYYYMMDD-XXXX
+  status           String // "PENDING", "PREPARING", "READY", "COMPLETED", "CANCELLED"
+  paymentStatus    String // "PENDING", "PAID", "REFUNDED"
+  paymentMethod    String // "CASH", "CARD", "LOYALTY"
+  subtotal         Float
+  tax              Float
+  total            Float
+  employeeId       String
+  shiftId          String
+  shift            EmployeeShift @relation(fields: [shiftId], references: [id])
+  items            OrderItem[]
+  memberId         String?
+  tableNumber      String?
+  waiterInfo       String?
+  orderType        String? // "DINE_IN", "TAKE_AWAY", "DELIVERY"
+  customerName     String?
+  customerPhone    String?
+  deliveryAddress  String?
+  deliveryPlatform String? // Sub-channel: "FOODPANDA", "UBER_EATS", "OTHER", etc.
+  isPrinted        Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model LoyaltySnapshot {
+  memberId   String   @id
+  memberName String
+  points     Int
+  updatedAt  DateTime @updatedAt
+}
+
+model OrderItem {
+  id               String              @id @default(uuid())
+  orderId          String
+  order            Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariantId String
+  productVariant   ProductVariant      @relation(fields: [productVariantId], references: [id])
+  quantity         Int
+  unitPrice        Float
+  totalPrice       Float
+  modifiers        OrderItemModifier[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+model OrderItemModifier {
+  id          String    @id @default(uuid())
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  modifierId  String
+  modifier    Modifier  @relation(fields: [modifierId], references: [id])
+  price       Float
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model BusinessDay {
+  id        String          @id @default(uuid())
+  openedAt  DateTime        @default(now())
+  closedAt  DateTime?
+  shifts    EmployeeShift[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model EmployeeShift {
+  id             String       @id @default(uuid())
+  businessDayId  String?
+  businessDay    BusinessDay? @relation(fields: [businessDayId], references: [id])
+  employeePin    String
+  employeeName   String
+  openedAt       DateTime     @default(now())
+  closedAt       DateTime?
+  openingBalance Float
+  closingBalance Float?
+  actualCash     Float?
+  expectedCash   Float?
+  cardSales      Float        @default(0.00)
+  cashSales      Float        @default(0.00)
+  orders         Order[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model LocalSyncOutbox {
+  id           String   @id @default(uuid())
+  entityName   String // e.g. "Order", "InventoryStock", "EmployeeShift"
+  entityId     String
+  action       String // "CREATE", "UPDATE"
+  payload      String // JSON string of entity values
+  status       String // "PENDING", "COMPLETED", "FAILED"
+  attempts     Int      @default(0)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

@@ -1,0 +1,79 @@
+{
+  "setupComplete": true,
+  "businessName": "My Cafe",
+  "licenseKey": "",
+  "isMaster": true,
+  "masterIp": "127.0.0.1",
+  "branchId": "BR01",
+  "terminalId": "T01",
+  "enterpriseTenantId": "TENANT-CAFE-CORP",
+  "cloudUrl": "http://localhost:5000",
+  "employees": [
+    {
+      "pin": "0147",
+      "name": "Zeeshan Haider",
+      "role": "MANAGER"
+    },
+    {
+      "pin": "1234",
+      "name": "Dummy",
+      "role": "CASHIER"
+    },
+    {
+      "pin": "0011",
+      "name": "admin",
+      "role": "MANAGER"
+    }
+  ],
+  "categories": [
+    {
+      "name": "Cut In Chimney",
+      "status": "ACTIVE",
+      "bgColor": "#000000",
+      "textColor": "#ffffff"
+    },
+    {
+      "name": "Chimney  Cones",
+      "status": "ACTIVE",
+      "bgColor": "#f50000",
+      "textColor": "#ffffff"
+    },
+    {
+      "name": "Seasonal Drop",
+      "status": "ACTIVE",
+      "bgColor": "#1eff00",
+      "textColor": "#ffffff"
+    },
+    {
+      "name": "Shakes",
+      "status": "ACTIVE"
+    },
+    {
+      "name": "Ice cream",
+      "status": "ACTIVE"
+    },
+    {
+      "name": "Mocktails",
+      "status": "ACTIVE"
+    },
+    {
+      "name": "Others",
+      "status": "ACTIVE"
+    }
+  ],
+  "taxEnabled": false,
+  "taxRate": 10,
+  "printerMode": "usb",
+  "printerTarget": "POSPrinter",
+  "staff": [
+    {
+      "code": "12",
+      "name": "Dummy",
+      "fatherName": "Dummy",
+      "role": "Waiter",
+      "cnic": "123456789",
+      "salary": 12333,
+      "status": "ACTIVE"
+    }
+  ]
+}

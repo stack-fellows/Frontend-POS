@@ -1,0 +1,171 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Variables for Light / Dark Mode ───────────────── */
+:root {
+  --color-surface-0: #f8fafc;
+  --color-surface-50: #f1f5f9;
+  --color-surface-100: #ffffff;
+  --color-surface-200: #e2e8f0;
+  --color-surface-300: #cbd5e1;
+  --color-surface-400: #64748b;
+  --color-surface-500: #94a3b8;
+  --color-surface-600: #475569;
+  --color-surface-700: #0f172a;
+  
+  --bg-body: #f8fafc;
+  --text-body: #0f172a;
+
+  --bg-glass-panel: rgba(255, 255, 255, 0.85);
+  --border-glass-panel: rgba(249, 115, 22, 0.10);
+  --bg-glass-panel-interactive: rgba(255, 255, 255, 0.80);
+  --border-glass-panel-interactive: rgba(249, 115, 22, 0.08);
+  --bg-glass-panel-hover: rgba(243, 244, 246, 0.95);
+}
+
+.dark {
+  --color-surface-0: #0f0d0c;
+  --color-surface-50: #141210;
+  --color-surface-100: #1c1917;
+  --color-surface-200: #292524;
+  --color-surface-300: #44403c;
+  --color-surface-400: #78716c;
+  --color-surface-500: #a8a29e;
+  --color-surface-600: #d6d3d1;
+  --color-surface-700: #f5f5f4;
+
+  --bg-body: #0f0d0c;
+  --text-body: #f5f5f4;
+
+  --bg-glass-panel: rgba(28, 25, 23, 0.85);
+  --border-glass-panel: rgba(249, 115, 22, 0.10);
+  --bg-glass-panel-interactive: rgba(28, 25, 23, 0.80);
+  --border-glass-panel-interactive: rgba(249, 115, 22, 0.08);
+  --bg-glass-panel-hover: rgba(41, 37, 36, 0.95);
+}
+
+/* ─── Base reset ─────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--bg-body);
+  color: var(--text-body);
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  overflow: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  border: 2px solid #f1f5f9;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ─── Glass / Card surfaces (dark variant) ───────────────── */
+.glass-panel {
+  background: var(--bg-glass-panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass-panel);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.glass-panel-interactive {
+  background: var(--bg-glass-panel-interactive);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass-panel-interactive);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-interactive:hover {
+  background: var(--bg-glass-panel-hover);
+  border-color: rgba(249, 115, 22, 0.30);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 0 0 1px rgba(249,115,22,0.15);
+  transform: translateY(-1px);
+}
+
+/* ─── Gradient text ──────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #f97316, #fbbf24);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Page background ────────────────────────────────────── */
+.page-bg {
+  background: radial-gradient(ellipse at 30% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 80%, rgba(251,191,36,0.04) 0%, transparent 60%),
+              var(--color-surface-0);
+  transition: background-color 0.2s ease;
+}
+
+/* ─── Scrollbar utilities ────────────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  border: 2px solid #f1f5f9;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Input base & Enterprise Focus Protection ───────────── */
+input, select, textarea {
+  font-family: inherit;
+  pointer-events: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Ensure Next.js dev overlay never traps pointer-events or blocks underlying UI */
+nextjs-portal {
+  pointer-events: none !important;
+}
+nextjs-portal * {
+  pointer-events: auto;
+}
+
+/* Ensure container elements do not disable inputs when errors trigger */
+body, #__next {
+  pointer-events: auto !important;
+}
+
