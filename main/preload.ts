@@ -4,8 +4,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   printReceipt: (arg1: any, arg2?: any) => ipcRenderer.invoke('print-receipt', { receiptData: arg2 ? arg2 : arg1 }),
   getInstalledPrinters: () => ipcRenderer.invoke('get-installed-printers'),
-  testPrint: (target: string, mode: string) => ipcRenderer.invoke('test-print', { target, mode }),
-  savePrinterSettings: (target: string, mode: string, logoBase64?: string, showPrintPreview?: boolean) => ipcRenderer.invoke('save-printer-settings', { target, mode, logoBase64, showPrintPreview }),
+  testPrint: (target: string, mode: string, printerType?: 'esc-pos' | 'html') => ipcRenderer.invoke('test-print', { target, mode, printerType }),
+  savePrinterSettings: (target: string, mode: string, logoBase64?: string, showPrintPreview?: boolean, printerType?: 'esc-pos' | 'html') => ipcRenderer.invoke('save-printer-settings', { target, mode, logoBase64, showPrintPreview, printerType }),
   getPrintLogs: () => ipcRenderer.invoke('get-print-logs'),
   closeApp: () => ipcRenderer.invoke('close-app'),
   onUpdateAvailable: (callback: (info: any) => void) => {

@@ -1079,6 +1079,12 @@ export default function POSBilling() {
   <div class="meta-info">
     <div><span>Order: #${data.orderNumber || 'Pending'}</span><span>Date: ${formatDate(data.dateTime)}</span></div>
     <div><span>Cashier: ${data.employeeName || 'Staff'}</span><span>Type: ${data.orderType || 'Take Away'}</span></div>
+    ${(data.waiterInfo || data.tableNumber) ? `
+      <div>
+        ${data.waiterInfo ? `<span>Waiter: ${data.waiterInfo}</span>` : ''}
+        ${data.tableNumber ? `<span>Table: ${data.tableNumber}</span>` : ''}
+      </div>
+    ` : ''}
     ${data.customerName ? `<div><span>Customer: ${data.customerName}</span></div>` : ''}
   </div>
 
@@ -1214,11 +1220,13 @@ export default function POSBilling() {
           
           try {
             const actualChange = Math.max(0, parseFloat(cashReceived || '0') - total);
-            await executePrintReceipt({ orderNumber: created.orderNumber, dateTime: created.createdAt, employeeName: activeShift.employeeName, items: receiptItems, subtotal, tax, total, discountAmount: orderDiscountAmount, discountName: orderDiscountAmount > 0 ? discount.name : undefined, paymentMethod: paymentStatus === 'PAID' ? paymentMethod : 'PENDING', cashReceived: (paymentMethod === 'CASH' && paymentStatus === 'PAID' && parseFloat(cashReceived) > 0) ? parseFloat(cashReceived) : undefined, changeGiven: (paymentMethod === 'CASH' && paymentStatus === 'PAID' && actualChange > 0) ? actualChange : undefined, orderType: created.orderType, tableNumber: created.tableNumber, waiterInfo: created.waiterInfo, customerName: created.customerName, customerPhone: created.customerPhone, deliveryAddress: created.deliveryAddress, taxRate: (settings?.taxEnabled ?? true) ? (settings?.taxRate ?? 10) : 0 });
-            try {
-              await fetch(`${apiUrl}/api/orders/${created.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPrinted: true }) });
-              created.isPrinted = true;
-            } catch (e) { console.error('Failed to set isPrinted:', e); }
+            const printSucceeded = await executePrintReceipt({ orderNumber: created.orderNumber, dateTime: created.createdAt, employeeName: activeShift.employeeName, items: receiptItems, subtotal, tax, total, discountAmount: orderDiscountAmount, discountName: orderDiscountAmount > 0 ? discount.name : undefined, paymentMethod: paymentStatus === 'PAID' ? paymentMethod : 'PENDING', cashReceived: (paymentMethod === 'CASH' && paymentStatus === 'PAID' && parseFloat(cashReceived) > 0) ? parseFloat(cashReceived) : undefined, changeGiven: (paymentMethod === 'CASH' && paymentStatus === 'PAID' && actualChange > 0) ? actualChange : undefined, orderType: created.orderType, tableNumber: created.tableNumber, waiterInfo: created.waiterInfo, customerName: created.customerName, customerPhone: created.customerPhone, deliveryAddress: created.deliveryAddress, taxRate: (settings?.taxEnabled ?? true) ? (settings?.taxRate ?? 10) : 0 });
+            if (printSucceeded) {
+              try {
+                await fetch(`${apiUrl}/api/orders/${created.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPrinted: true }) });
+                created.isPrinted = true;
+              } catch (e) { console.error('Failed to set isPrinted:', e); }
+            }
           } catch (printErr) {
             console.error('Printing failed but order was saved successfully:', printErr);
           }
@@ -1252,11 +1260,13 @@ export default function POSBilling() {
       const up = item.isComplimentary ? 0 : (item.discount ? Math.max(0, item.unitPrice - da / item.quantity) : item.unitPrice);
       return { name: `${item.productName} (${item.variantName})${da > 0 ? ` [Disc:-${da.toFixed(2)}]` : ''}`, qty: item.quantity, price: up, modifiers: item.modifiers.map(m => m.name) };
     });
-    await executePrintReceipt({ orderNumber: originalOrder.orderNumber, dateTime: originalOrder.createdAt, employeeName: activeShift?.employeeName || 'Staff', items: receiptItems, subtotal, tax, total, discountAmount, discountName: discountAmount > 0 ? discount.name : undefined, paymentMethod: originalOrder.paymentMethod, orderType: originalOrder.orderType, tableNumber: originalOrder.tableNumber, waiterInfo: originalOrder.waiterInfo, customerName: originalOrder.customerName, customerPhone: originalOrder.customerPhone, deliveryAddress: originalOrder.deliveryAddress, deliveryPlatform: originalOrder.deliveryPlatform, taxRate: (settings?.taxEnabled ?? true) ? (settings?.taxRate ?? 10) : 0 });
-    try {
-      await fetch(`${apiUrl}/api/orders/${originalOrder.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPrinted: true }) });
-      fetchUnpaidOrders();
-    } catch (e) { console.error('Failed to set isPrinted:', e); }
+    const printSucceeded = await executePrintReceipt({ orderNumber: originalOrder.orderNumber, dateTime: originalOrder.createdAt, employeeName: activeShift?.employeeName || 'Staff', items: receiptItems, subtotal, tax, total, discountAmount, discountName: discountAmount > 0 ? discount.name : undefined, paymentMethod: originalOrder.paymentMethod, orderType: originalOrder.orderType, tableNumber: originalOrder.tableNumber, waiterInfo: originalOrder.waiterInfo, customerName: originalOrder.customerName, customerPhone: originalOrder.customerPhone, deliveryAddress: originalOrder.deliveryAddress, deliveryPlatform: originalOrder.deliveryPlatform, taxRate: (settings?.taxEnabled ?? true) ? (settings?.taxRate ?? 10) : 0 });
+    if (printSucceeded) {
+      try {
+        await fetch(`${apiUrl}/api/orders/${originalOrder.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPrinted: true }) });
+        fetchUnpaidOrders();
+      } catch (e) { console.error('Failed to set isPrinted:', e); }
+    }
   };
 
   const handleReopenOrder = async (orderId: string) => {

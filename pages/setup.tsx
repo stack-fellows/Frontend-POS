@@ -20,6 +20,7 @@ export default function SetupWizard() {
     cloudUrl: 'http://localhost:5000',
     printerMode: 'usb',
     printerTarget: 'POSPrinter',
+    printerType: 'esc-pos',
     adminPin: '',
     adminName: 'Manager'
   });
@@ -91,6 +92,7 @@ export default function SetupWizard() {
         cloudUrl: formData.cloudUrl,
         printerMode: formData.printerMode,
         printerTarget: formData.printerTarget,
+        printerType: formData.printerType,
       };
 
       // 1. Save settings
@@ -286,6 +288,23 @@ export default function SetupWizard() {
             {step === 4 && (
               <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <h2 className="text-xl font-bold text-white mb-6">Receipt Printer Setup</h2>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">Receipt Print Style</label>
+                  <select
+                    name="printerType"
+                    value={formData.printerType}
+                    onChange={handleChange}
+                    className="w-full bg-zinc-800 border border-zinc-700  px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="esc-pos">ESC/POS Native (Text - Recommended)</option>
+                    <option value="html">HTML Custom Design (Graphics)</option>
+                  </select>
+                  <p className="text-xs text-zinc-500 mt-2">
+                    {formData.printerType === 'esc-pos'
+                      ? 'Best for standard thermal receipt printers. Quick, clear text alignment, auto-cutter, cash drawer support.'
+                      : 'Requires manual driver scaling properties in Windows to match the 80mm roll width.'}
+                  </p>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-zinc-400 mb-1">Printer Connection Type</label>
                   <select

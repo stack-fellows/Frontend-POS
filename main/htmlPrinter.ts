@@ -3,6 +3,7 @@ import { ReceiptData } from './printer';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { getPrintRuntime } from './printer';
 
 function formatDateWithSeconds(dateInput: Date | string | number): string {
   const d = new Date(dateInput);
@@ -88,6 +89,12 @@ export function printHtmlReceipt(
   <div class="meta-info">
     <div><span>Order: #${data.orderNumber || 'Pending'}</span><span>Date: ${formatDateWithSeconds(data.dateTime)}</span></div>
     <div><span>Cashier: ${data.employeeName || 'Staff'}</span><span>Type: ${data.orderType || 'Take Away'}</span></div>
+    ${(data.waiterInfo || data.tableNumber) ? `
+      <div>
+        ${data.waiterInfo ? `<span>Waiter: ${data.waiterInfo}</span>` : ''}
+        ${data.tableNumber ? `<span>Table: ${data.tableNumber}</span>` : ''}
+      </div>
+    ` : ''}
     ${data.customerName ? `<div><span>Customer: ${data.customerName}</span></div>` : ''}
   </div>
 
@@ -145,6 +152,22 @@ export function printHtmlReceipt(
     `;
 
     const tmpFile = path.join(os.tmpdir(), `receipt_${Date.now()}.html`);
+
+    if (getPrintRuntime() === 'simulation') {
+      const debugFolder = path.join(process.cwd(), '.print-debug');
+      const debugFile = path.join(debugFolder, `receipt_${Date.now()}.html`);
+      try {
+        fs.mkdirSync(debugFolder, { recursive: true });
+        fs.writeFileSync(debugFile, htmlContent, 'utf-8');
+        console.log(`[Sandbox Log] HTML receipt simulated for "${deviceName}" (${htmlContent.length} characters)`);
+        console.log(`[Sandbox Log] HTML artifact: ${debugFile}`);
+        resolve(true);
+      } catch (err) {
+        reject(err);
+      }
+      return;
+    }
+
     try {
       fs.writeFileSync(tmpFile, htmlContent, 'utf-8');
     } catch (err) {
@@ -159,18 +182,41 @@ export function printHtmlReceipt(
       }
     });
 
-    win.loadFile(tmpFile);
+    const cleanup = () => {
+      if (!win.isDestroyed()) win.close();
+      try { fs.unlinkSync(tmpFile); } catch (e) {}
+    };
+    const loadTimer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Receipt preview timed out while loading'));
+    }, 10000);
+
+    win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+      clearTimeout(loadTimer);
+      cleanup();
+      reject(new Error(`Receipt preview failed to load (${errorCode}): ${errorDescription}`));
+    });
+
+    win.loadFile(tmpFile).catch((err) => {
+      clearTimeout(loadTimer);
+      cleanup();
+      reject(err);
+    });
 
     win.webContents.on('did-finish-load', () => {
+      clearTimeout(loadTimer);
       setTimeout(() => {
         win.webContents.print({
           silent: !showPreview,
           deviceName: deviceName,
           printBackground: true,
-          margins: { marginType: 'none' }
+          margins: { marginType: 'none' },
+          pageSize: {
+            width: 80000,   // 80mm in microns
+            height: 250000  // 250mm in microns
+          }
         }, (success, failureReason) => {
-          win.close();
-          try { fs.unlinkSync(tmpFile); } catch (e) {}
+          cleanup();
           if (success || failureReason === 'cancelled') {
             resolve(true);
           } else {

@@ -12,3 +12,4 @@ updates/*.exe
 *.log
 tsc_output*.txt
 *.tsbuildinfo
+.print-debug/

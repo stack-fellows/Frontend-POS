@@ -95,6 +95,7 @@ interface Order {
   orderType: string;
   tableNumber?: string;
   customerName?: string;
+  waiterInfo?: string;
   deliveryPlatform?: string;
   items: {
     id: string;
@@ -823,6 +824,45 @@ export default function AdminDashboard() {
   const recentOrders = useMemo(() => {
     return paidOrders.slice(0, 5);
   }, [paidOrders]);
+
+  // Waiter Performance Statistics
+  const waiterStats = useMemo(() => {
+    const stats: Record<string, { name: string; sales: number; count: number }> = {};
+    paidOrders.forEach(order => {
+      if (order.waiterInfo) {
+        const waiter = order.waiterInfo.trim();
+        if (waiter) {
+          if (!stats[waiter]) {
+            stats[waiter] = { name: waiter, sales: 0, count: 0 };
+          }
+          stats[waiter].sales += Number(order.total || 0);
+          stats[waiter].count += 1;
+        }
+      }
+    });
+    return Object.values(stats).sort((a, b) => b.sales - a.sales);
+  }, [paidOrders]);
+
+  // Delivery Channel Statistics
+  const deliveryStats = useMemo(() => {
+    const stats: Record<string, { platform: string; sales: number; count: number }> = {
+      'FOODPANDA': { platform: 'Foodpanda', sales: 0, count: 0 },
+      'UBER_EATS': { platform: 'Uber Eats', sales: 0, count: 0 },
+      'OTHER': { platform: 'Other', sales: 0, count: 0 },
+    };
+    paidOrders.forEach(order => {
+      if (order.orderType === 'DELIVERY') {
+        const platform = order.deliveryPlatform || 'OTHER';
+        if (!stats[platform]) {
+          stats[platform] = { platform: platform, sales: 0, count: 0 };
+        }
+        stats[platform].sales += Number(order.total || 0);
+        stats[platform].count += 1;
+      }
+    });
+    return Object.values(stats).filter(s => s.sales > 0 || s.count > 0).sort((a, b) => b.sales - a.sales);
+  }, [paidOrders]);
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // 2-PAGE EXECUTIVE SALES REPORT PDF GENERATOR (PAKISTAN / PK CURRENCY SAFE)
@@ -2294,6 +2334,92 @@ export default function AdminDashboard() {
                   </div>
                   <div className="pt-2">
                     <DonutChart data={donutChartData} isDark={isDark} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid: Waiter & Delivery Performance */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Waiter Performance */}
+                <div className={`p-5 rounded-xl border ${cardClass} space-y-4`}>
+                  <div className="flex justify-between items-center border-b border-purple-950/20 pb-3">
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider">Waiter Performance</h3>
+                      <p className="text-[10px] opacity-60 font-semibold mt-0.5">Top performing waiters by sales revenue</p>
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto max-h-[250px]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-purple-950/25 opacity-70">
+                          <th className="py-2.5 font-bold">Waiter Name</th>
+                          <th className="py-2.5 font-bold text-center">Orders</th>
+                          <th className="py-2.5 font-bold text-right">Total Sales</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-purple-950/10">
+                        {waiterStats.map((w, idx) => (
+                          <tr key={w.name} className={`${hoverClass} transition`}>
+                            <td className="py-3 font-semibold flex items-center gap-2">
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                idx === 0 ? 'bg-amber-500/20 text-amber-500 border border-amber-500/20' :
+                                idx === 1 ? 'bg-slate-300/20 text-slate-400 border border-slate-300/20' :
+                                'bg-purple-500/10 text-purple-400 border border-purple-500/10'
+                              }`}>
+                                {idx + 1}
+                              </span>
+                              {w.name}
+                            </td>
+                            <td className="py-3 text-center opacity-85 font-medium">{w.count}</td>
+                            <td className="py-3 font-bold text-right text-purple-400">{w.sales.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        {waiterStats.length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="py-8 text-center opacity-60 italic">
+                              No waiter sales recorded for this period.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Delivery Channels */}
+                <div className={`p-5 rounded-xl border ${cardClass} space-y-4`}>
+                  <div className="flex justify-between items-center border-b border-purple-950/20 pb-3">
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider">Delivery Channel Performance</h3>
+                      <p className="text-[10px] opacity-60 font-semibold mt-0.5">Sales generated across delivery platforms</p>
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto max-h-[250px]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-purple-950/25 opacity-70">
+                          <th className="py-2.5 font-bold">Platform</th>
+                          <th className="py-2.5 font-bold text-center">Orders</th>
+                          <th className="py-2.5 font-bold text-right">Total Sales</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-purple-950/10">
+                        {deliveryStats.map((d) => (
+                          <tr key={d.platform} className={`${hoverClass} transition`}>
+                            <td className="py-3 font-semibold">{d.platform}</td>
+                            <td className="py-3 text-center opacity-85 font-medium">{d.count}</td>
+                            <td className="py-3 font-bold text-right text-purple-400">{d.sales.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        {deliveryStats.length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="py-8 text-center opacity-60 italic">
+                              No delivery platform sales recorded for this period.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -3819,6 +3945,7 @@ export default function AdminDashboard() {
               initialTarget={settings?.printerTarget || 'POSPrinter'}
               initialLogo={settings?.printerLogoBase64 || ''}
               initialShowPrintPreview={settings?.showPrintPreview || false}
+              initialPrinterType={settings?.printerType || 'esc-pos'}
             />
           )}
         </div>
@@ -3839,15 +3966,16 @@ interface InstalledPrinter {
 }
 
 function PrinterSetupTab({
-  cardClass, inputClass, isDark, textMuted, borderClass, initialMode, initialTarget, initialLogo, initialShowPrintPreview
+  cardClass, inputClass, isDark, textMuted, borderClass, initialMode, initialTarget, initialLogo, initialShowPrintPreview, initialPrinterType
 }: {
   cardClass: string; inputClass: string; isDark: boolean; textMuted: string;
-  borderClass: string; initialMode: 'usb' | 'network'; initialTarget: string; initialLogo?: string; initialShowPrintPreview?: boolean;
+  borderClass: string; initialMode: 'usb' | 'network'; initialTarget: string; initialLogo?: string; initialShowPrintPreview?: boolean; initialPrinterType?: 'esc-pos' | 'html';
 }) {
   const [mode, setMode] = useState<'usb' | 'network'>(initialMode);
   const [target, setTarget] = useState(initialTarget);
   const [logo, setLogo] = useState(initialLogo || '');
   const [showPrintPreview, setShowPrintPreview] = useState(initialShowPrintPreview || false);
+  const [printerType, setPrinterType] = useState<'esc-pos' | 'html'>(initialPrinterType || 'esc-pos');
   const [printers, setPrinters] = useState<InstalledPrinter[]>([]);
   const [scanning, setScanning] = useState(false);
   const [scanDone, setScanDone] = useState(false);
@@ -3910,7 +4038,7 @@ function PrinterSetupTab({
     if (!api) return showStatus('Not running in Electron.', false);
     setTesting(true);
     try {
-      const res = await api.testPrint(target.trim(), mode);
+      const res = await api.testPrint(target.trim(), mode, printerType);
       if (res.success) {
         showStatus('✓ Test print sent successfully! Check your printer.', true);
       } else {
@@ -3931,7 +4059,7 @@ function PrinterSetupTab({
     }
     setSaving(true);
     try {
-      const res = await api.savePrinterSettings(target.trim(), mode, logo, showPrintPreview);
+      const res = await api.savePrinterSettings(target.trim(), mode, logo, showPrintPreview, printerType);
       if (res.success) {
         showStatus('✓ Printer settings saved successfully!', true);
       } else {
@@ -4093,6 +4221,37 @@ function PrinterSetupTab({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Receipt Print Style Toggle */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-wider block opacity-70">Receipt Print Style</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { type: 'esc-pos', label: '📄 ESC/POS (Text)', desc: 'Recommended. Native printer code, fast, correct width, auto-cut.' },
+                { type: 'html', label: '🎨 HTML (Graphic)', desc: 'Allows custom fonts & image logo, but requires manual driver scaling.' }
+              ].map((style) => (
+                <button
+                  key={style.type}
+                  id={`btn-style-${style.type}`}
+                  type="button"
+                  onClick={() => setPrinterType(style.type as 'esc-pos' | 'html')}
+                  className={`py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition ${
+                    printerType === style.type
+                      ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/30'
+                      : isDark ? 'border-purple-950/30 text-purple-400/70 hover:border-purple-800/50' : 'border-slate-200 text-slate-500 hover:border-purple-300'
+                  }`}
+                  title={style.desc}
+                >
+                  {style.label}
+                </button>
+              ))}
+            </div>
+            <p className={`text-[9px] leading-tight ${textMuted}`}>
+              {printerType === 'esc-pos' 
+                ? '✓ Selected native ESC/POS. Best for thermal receipts. Perfect fit, no missing margins, cash drawer & cutter work reliably.' 
+                : '⚠ Selected HTML. Best if you need a graphical logo, but you must set the printer properties in Windows to exactly 80mm to avoid scaling issues.'}
+            </p>
           </div>
 
           {/* Target Input */}

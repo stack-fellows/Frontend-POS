@@ -597,7 +597,10 @@ app.get('/api/settings', (req, res) => {
       branchId: settings.branchId,
       terminalId: settings.terminalId,
       cloudUrl: settings.cloudUrl,
-      enterpriseTenantId: settings.enterpriseTenantId
+      enterpriseTenantId: settings.enterpriseTenantId,
+      printerMode: settings.printerMode,
+      printerTarget: settings.printerTarget,
+      printerType: settings.printerType,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -606,7 +609,7 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/settings', (req, res) => {
   try {
-    const { setupComplete, businessName, licenseKey, taxEnabled, taxRate, isMaster, masterIp, branchId, terminalId, cloudUrl, enterpriseTenantId } = req.body;
+    const { setupComplete, businessName, licenseKey, taxEnabled, taxRate, isMaster, masterIp, branchId, terminalId, cloudUrl, enterpriseTenantId, printerMode, printerTarget, printerType } = req.body;
     const settings = loadSettings();
 
     if (setupComplete !== undefined) settings.setupComplete = !!setupComplete;
@@ -620,6 +623,9 @@ app.post('/api/settings', (req, res) => {
     if (terminalId !== undefined) settings.terminalId = terminalId;
     if (cloudUrl !== undefined) settings.cloudUrl = cloudUrl;
     if (enterpriseTenantId !== undefined) settings.enterpriseTenantId = enterpriseTenantId;
+    if (printerMode !== undefined) settings.printerMode = printerMode;
+    if (printerTarget !== undefined) settings.printerTarget = printerTarget;
+    if (printerType !== undefined) settings.printerType = printerType;
 
     saveSettings(settings);
     res.json({ success: true, settings });

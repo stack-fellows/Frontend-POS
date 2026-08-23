@@ -6,7 +6,7 @@ import { loadSettings, saveSettings } from './settings';
 import { startLocalServer, stopLocalServer } from './server';
 import { startSyncEngine, stopSyncEngine } from './sync';
 import { startEmbeddedCloudServer, stopEmbeddedCloudServer } from './cloudServer';
-import { ReceiptData } from './printer';
+import { ReceiptData, getPrintRuntime, printReceipt } from './printer';
 import { printHtmlReceipt } from './htmlPrinter';
 import { connectToCloudWs, disconnectCloudWs } from './cloudWs';
 import { autoUpdater } from 'electron-updater';
@@ -57,8 +57,10 @@ function createWindow() {
   // AUTO-UPDATER LOGIC
   // ----------------------------------------------------
   if (!isDev) {
-    const cloudUrl = settings.cloudUrl || 'http://localhost:8000';
-    autoUpdater.setFeedURL(`${cloudUrl}/updates`);
+    // Commented out to use GitHub Releases instead of local/cloud server for auto-updates.
+    // electron-updater will automatically read your GitHub repo publish details from package.json/app-update.yml.
+    // const cloudUrl = settings.cloudUrl || 'http://localhost:8000';
+    // autoUpdater.setFeedURL(`${cloudUrl}/updates`);
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
 
@@ -129,11 +131,14 @@ interface PrintLog {
   error?: string;
   target: string;
   mode: string;
+  printerType?: string;
+  runtime?: string;
+  stage?: string;
 }
 
 const printLogs: PrintLog[] = [];
 
-function addPrintLog(orderNumber: string, target: string, mode: string): PrintLog {
+function addPrintLog(orderNumber: string, target: string, mode: string, printerType?: string): PrintLog {
   const log: PrintLog = {
     id: Math.random().toString(36).substring(2, 9),
     timestamp: new Date().toLocaleTimeString(),
@@ -141,6 +146,9 @@ function addPrintLog(orderNumber: string, target: string, mode: string): PrintLo
     status: 'printing',
     target,
     mode,
+    printerType,
+    runtime: getPrintRuntime(),
+    stage: 'queued',
   };
   printLogs.unshift(log);
   if (printLogs.length > 50) printLogs.pop();
@@ -157,17 +165,27 @@ ipcMain.handle('print-receipt', async (event, { receiptData }: { receiptData: Re
   const settings = loadSettings();
   const mode = settings.printerMode || 'usb';
   const target = settings.printerTarget || 'POSPrinter';
-  const logItem = addPrintLog(receiptData.orderNumber || 'UNKNOWN', target, mode);
+  const printerType = settings.printerType || 'esc-pos';
+  const logItem = addPrintLog(receiptData.orderNumber || 'UNKNOWN', target, mode, printerType);
   
   try {
-    await printHtmlReceipt(target, receiptData, settings.printerLogoBase64, settings.showPrintPreview);
+    logItem.stage = 'formatting';
+    if (settings.printerType === 'html') {
+      logItem.stage = 'html-print';
+      await printHtmlReceipt(target, receiptData, settings.printerLogoBase64, settings.showPrintPreview);
+    } else {
+      logItem.stage = mode === 'network' ? 'network-send' : 'usb-send';
+      await printReceipt(target, receiptData, mode, settings.printerLogoBase64);
+    }
     logItem.status = 'success';
-    return { success: true };
+    logItem.stage = 'completed';
+    return { success: true, runtime: logItem.runtime, stage: logItem.stage, diagnosticId: logItem.id };
   } catch (err: any) {
     console.error('[Electron Main IPC] Print failed:', err.message);
     logItem.status = 'error';
+    logItem.stage = 'failed';
     logItem.error = err.message;
-    return { success: false, error: err.message };
+    return { success: false, runtime: logItem.runtime, stage: logItem.stage, diagnosticId: logItem.id, error: err.message };
   }
 });
 
@@ -202,12 +220,14 @@ ipcMain.handle('get-installed-printers', async () => {
 });
 
 // IPC Handler: Save printer settings and send a test print
-ipcMain.handle('test-print', async (event, { target, mode }: { target: string; mode: 'usb' | 'network' }) => {
-  const logItem = addPrintLog('TEST-PRINT', target, mode);
+ipcMain.handle('test-print', async (event, { target, mode, printerType }: { target: string; mode: 'usb' | 'network'; printerType?: 'esc-pos' | 'html' }) => {
+  const settings = loadSettings();
+  const selectedPrinterType = printerType || settings.printerType || 'esc-pos';
+  const logItem = addPrintLog('TEST-PRINT', target, mode, selectedPrinterType);
   try {
     // Save the settings first
-    const settings = loadSettings();
     settings.printerMode = mode;
+    settings.printerType = selectedPrinterType;
     settings.printerTarget = target;
     saveSettings(settings);
 
@@ -222,25 +242,33 @@ ipcMain.handle('test-print', async (event, { target, mode }: { target: string; m
       total: 0.00,
       paymentMethod: 'TEST',
     };
-    await printHtmlReceipt(target, testReceipt, settings.printerLogoBase64);
+    logItem.stage = selectedPrinterType === 'html' ? 'html-print' : mode === 'network' ? 'network-send' : 'usb-send';
+    if (selectedPrinterType === 'html') {
+      await printHtmlReceipt(target, testReceipt, settings.printerLogoBase64);
+    } else {
+      await printReceipt(target, testReceipt, mode, settings.printerLogoBase64);
+    }
     logItem.status = 'success';
-    return { success: true };
+    logItem.stage = 'completed';
+    return { success: true, runtime: logItem.runtime, stage: logItem.stage, diagnosticId: logItem.id };
   } catch (err: any) {
     console.error('[Electron Main IPC] Test print failed:', err.message);
     logItem.status = 'error';
+    logItem.stage = 'failed';
     logItem.error = err.message;
-    return { success: false, error: err.message };
+    return { success: false, runtime: logItem.runtime, stage: logItem.stage, diagnosticId: logItem.id, error: err.message };
   }
 });
 
 // IPC Handler: Save printer settings without printing
-ipcMain.handle('save-printer-settings', async (event, { target, mode, logoBase64, showPrintPreview }: { target: string; mode: 'usb' | 'network'; logoBase64?: string; showPrintPreview?: boolean }) => {
+ipcMain.handle('save-printer-settings', async (event, { target, mode, logoBase64, showPrintPreview, printerType }: { target: string; mode: 'usb' | 'network'; logoBase64?: string; showPrintPreview?: boolean; printerType?: 'esc-pos' | 'html' }) => {
   try {
     const settings = loadSettings();
     settings.printerMode = mode;
     settings.printerTarget = target;
     if (logoBase64 !== undefined) settings.printerLogoBase64 = logoBase64;
     if (showPrintPreview !== undefined) settings.showPrintPreview = showPrintPreview;
+    if (printerType !== undefined) settings.printerType = printerType;
     saveSettings(settings);
     return { success: true };
   } catch (err: any) {

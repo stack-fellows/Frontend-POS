@@ -43,6 +43,7 @@ export interface TerminalSettings {
   printerTarget: string;
   printerLogoBase64?: string;
   showPrintPreview?: boolean;
+  printerType?: 'esc-pos' | 'html';
   staff?: Staff[];
 }
 
@@ -85,6 +86,7 @@ const defaultSettings: TerminalSettings = {
   // Printer: USB via Windows shared printer named 'POSPrinter'
   printerMode: 'usb',
   printerTarget: 'POSPrinter',
+  printerType: 'esc-pos',
 };
 
 export function loadSettings(): TerminalSettings {

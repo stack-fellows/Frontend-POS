@@ -223,7 +223,7 @@ export function connectToCloudWs() {
           };
           const mode = settings.printerMode || 'usb';
           const target = settings.printerTarget || 'POSPrinter';
-          await printReceipt(target, receiptPayload, mode);
+          await printReceipt(target, receiptPayload, mode, settings.printerLogoBase64);
         } catch (err: any) {
           console.error('[Cloud WS] Auto-printing failed:', err.message);
         }

@@ -1,6 +1,6 @@
 {
   "name": "desktop-edge-client",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "POS Chimney Corner",
   "author": "TwinTechSols",
   "main": "dist/main/index.js",
@@ -14,7 +14,8 @@
     "dev": "concurrently \"npm run dev:next\" \"tsc -p tsconfig.main.json -w\" \"npm run dev:server\"",
     "prisma:generate": "prisma generate && prisma generate --schema=prisma/cloud-schema.prisma && node copy-generated.js",
     "prisma:migrate": "prisma migrate dev",
-    "package": "cross-env NODE_ENV=production npm run build:next && npm run build:main && electron-builder"
+    "package": "cross-env NODE_ENV=production npm run build:next && npm run build:main && electron-builder",
+    "publish": "cross-env NODE_ENV=production npm run build:next && npm run build:main && electron-builder --publish always"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2",
@@ -52,6 +53,11 @@
     "appId": "com.twintech.chimneycorner",
     "productName": "Chimney Corner POS",
     "copyright": "Copyright © 2026 TwinTechSols",
+    "publish": {
+      "provider": "github",
+      "owner": "stack-fellows",
+      "repo": "Frontend-POS"
+    },
     "directories": {
       "output": "dist-packaged"
     },
