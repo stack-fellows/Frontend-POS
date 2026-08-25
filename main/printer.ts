@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { app, nativeImage } from 'electron';
+import { logPrint } from './logger';
+import { loadSettings } from './settings';
 
 /**
  * 🛠️ VIRTUAL PRINTER SANDBOX MODE TOGGLE
@@ -440,10 +442,20 @@ export function formatReceipt(data: ReceiptData): string {
 
 export function printReceiptUsb(shareName: string, receiptData: ReceiptData, logoBase64?: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
+    const normalizedShareName = shareName.trim();
+    logPrint(`[USB] request runtime=${getPrintRuntime()} target="${normalizedShareName}"`);
+    if (!normalizedShareName || /[\\/:*?"<>|]/.test(normalizedShareName)) {
+      logPrint(`[USB] REJECTED invalid share name "${shareName}"`);
+      reject(new Error('Invalid Windows printer share name'));
+      return;
+    }
+
     const rawBytes = formatReceiptBuffer(receiptData, logoBase64);
+    logPrint(`[USB] ESC/POS payload=${rawBytes.length} bytes`);
 
     if (getPrintRuntime() === 'simulation') {
-      console.log(`[Sandbox Log] Trapped active print sequence targeting USB Share: "${shareName}"`);
+      logPrint(`[USB] SIMULATION mode — nothing sent to printer "${normalizedShareName}". Set POS_PRINT_RUNTIME=hardware to print for real.`);
+      console.log(`[Sandbox Log] Trapped active print sequence targeting USB Share: "${normalizedShareName}"`);
       console.log(`[Sandbox Log] ESC/POS payload size: ${rawBytes.length} bytes`);
       verifyAndLogVirtualReceipt(rawBytes);
       return resolve(true);
@@ -453,15 +465,28 @@ export function printReceiptUsb(shareName: string, receiptData: ReceiptData, log
     try {
       fs.writeFileSync(tmpFile, rawBytes);
     } catch (err: any) {
+      logPrint(`[USB] FAILED writing temp file: ${err.message}`);
       return reject(err);
     }
 
-    const printerUncPath = `\\\\127.0.0.1\\${shareName}`;
+    const printerUncPath = normalizedShareName.startsWith('\\\\')
+      ? normalizedShareName
+      : `\\\\127.0.0.1\\${normalizedShareName}`;
     const command = `copy /b "${tmpFile}" "${printerUncPath}"`;
+    logPrint(`[USB] exec: ${command}`);
 
     exec(command, { shell: 'cmd.exe' }, (error, stdout, stderr) => {
       try { fs.unlinkSync(tmpFile); } catch (_) { }
-      if (error) return reject(new Error(stderr || error.message));
+      const exitCode = error ? (error.code ?? 'error') : 0;
+      logPrint(`[USB] copy exit=${exitCode} target=${printerUncPath} stdout="${stdout.trim()}" stderr="${stderr.trim()}"`);
+      console.log(`[Printer USB] copy exit=${exitCode} target=${printerUncPath}`);
+      if (stdout.trim()) console.log(`[Printer USB] stdout: ${stdout.trim()}`);
+      if (stderr.trim()) console.error(`[Printer USB] stderr: ${stderr.trim()}`);
+      if (error) {
+        logPrint(`[USB] REJECTED copy failed: ${stderr.trim() || error.message}`);
+        return reject(new Error(stderr.trim() || error.message));
+      }
+      logPrint(`[USB] copy succeeded — bytes handed to spooler for "${printerUncPath}". (If nothing prints physically, the share/driver is not raw-capable.)`);
       resolve(true);
     });
   });
@@ -469,10 +494,20 @@ export function printReceiptUsb(shareName: string, receiptData: ReceiptData, log
 
 export function printReceiptNetwork(printerIp: string, receiptData: ReceiptData, logoBase64?: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
+    const normalizedPrinterIp = printerIp.trim();
+    logPrint(`[NET] request runtime=${getPrintRuntime()} target="${normalizedPrinterIp}:9100"`);
+    if (!normalizedPrinterIp || /[\\s;|&<>"']/.test(normalizedPrinterIp)) {
+      logPrint(`[NET] REJECTED invalid printer address "${printerIp}"`);
+      reject(new Error('Invalid network printer address'));
+      return;
+    }
+
     const rawBytes = formatReceiptBuffer(receiptData, logoBase64);
+    logPrint(`[NET] ESC/POS payload=${rawBytes.length} bytes`);
 
     if (getPrintRuntime() === 'simulation') {
-      console.log(`[Sandbox Log] Trapped active print sequence targeting IP: ${printerIp}:9100`);
+      logPrint(`[NET] SIMULATION mode — nothing sent to ${normalizedPrinterIp}:9100. Set POS_PRINT_RUNTIME=hardware to print for real.`);
+      console.log(`[Sandbox Log] Trapped active print sequence targeting IP: ${normalizedPrinterIp}:9100`);
       console.log(`[Sandbox Log] ESC/POS payload size: ${rawBytes.length} bytes`);
       verifyAndLogVirtualReceipt(rawBytes);
       return resolve(true);
@@ -481,19 +516,26 @@ export function printReceiptNetwork(printerIp: string, receiptData: ReceiptData,
     const socket = new net.Socket();
     socket.setTimeout(5000);
 
-    socket.connect(9100, printerIp, () => {
-      socket.write(rawBytes, () => {
-        socket.destroy();
+    socket.connect(9100, normalizedPrinterIp, () => {
+      logPrint(`[NET] connected to ${normalizedPrinterIp}:9100; sending ${rawBytes.length} bytes`);
+      console.log(`[Printer Network] Connected to ${normalizedPrinterIp}:9100; sending ${rawBytes.length} bytes`);
+      socket.end(rawBytes, () => {
+        logPrint(`[NET] payload sent to ${normalizedPrinterIp}:9100`);
+        console.log(`[Printer Network] Payload sent to ${normalizedPrinterIp}:9100`);
         resolve(true);
       });
     });
 
     socket.on('error', (err) => {
+      logPrint(`[NET] REJECTED ${normalizedPrinterIp}:9100 failed: ${err.message}`);
+      console.error(`[Printer Network] ${normalizedPrinterIp}:9100 failed: ${err.message}`);
       socket.destroy();
       reject(err);
     });
 
     socket.on('timeout', () => {
+      logPrint(`[NET] REJECTED ${normalizedPrinterIp}:9100 timed out`);
+      console.error(`[Printer Network] ${normalizedPrinterIp}:9100 timed out`);
       socket.destroy();
       reject(new Error('Network terminal connection timed out'));
     });

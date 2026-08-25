@@ -1854,7 +1854,7 @@ export default function AdminDashboard() {
         modifiers: item.modifiers?.map((m: any) => m.modifier?.name) || []
       }));
 
-      await (window as any).electronAPI.printReceipt('127.0.0.1', {
+      const result = await (window as any).electronAPI.printReceipt('127.0.0.1', {
         orderNumber: order.orderNumber,
         dateTime: order.createdAt,
         employeeName: activeShift?.employeeName || 'Admin Manager',
@@ -1867,9 +1867,13 @@ export default function AdminDashboard() {
         tableNumber: order.tableNumber
       });
 
-      showToast('Receipt sent to POS printer bridge.');
+      if (result?.success) {
+        showToast(result.runtime === 'simulation' ? 'Receipt simulated successfully. No printer was contacted.' : 'Receipt sent to POS printer.');
+      } else {
+        showToast(result?.error || 'Printer rejected the receipt.');
+      }
     } catch (err) {
-      showToast('Printer offline.');
+      showToast(err instanceof Error ? err.message : 'Printer offline.');
     }
   };
 
@@ -3945,7 +3949,17 @@ export default function AdminDashboard() {
               initialTarget={settings?.printerTarget || 'POSPrinter'}
               initialLogo={settings?.printerLogoBase64 || ''}
               initialShowPrintPreview={settings?.showPrintPreview || false}
-              initialPrinterType={settings?.printerType || 'esc-pos'}
+              initialPrinterType={settings?.printerType || 'html'}
+              onSaved={async () => {
+                if (typeof window !== 'undefined' && (window as any).electronAPI) {
+                  try {
+                    const s = await (window as any).electronAPI.getSettings();
+                    setSettings(s);
+                  } catch (err) {
+                    console.error('Failed to refresh settings after printer save:', err);
+                  }
+                }
+              }}
             />
           )}
         </div>
@@ -3966,16 +3980,18 @@ interface InstalledPrinter {
 }
 
 function PrinterSetupTab({
-  cardClass, inputClass, isDark, textMuted, borderClass, initialMode, initialTarget, initialLogo, initialShowPrintPreview, initialPrinterType
+  cardClass, inputClass, isDark, textMuted, borderClass, initialMode, initialTarget, initialLogo, initialShowPrintPreview, initialPrinterType, onSaved
 }: {
   cardClass: string; inputClass: string; isDark: boolean; textMuted: string;
-  borderClass: string; initialMode: 'usb' | 'network'; initialTarget: string; initialLogo?: string; initialShowPrintPreview?: boolean; initialPrinterType?: 'esc-pos' | 'html';
+  borderClass: string; initialMode: 'usb' | 'network'; initialTarget: string; initialLogo?: string; initialShowPrintPreview?: boolean;
+  initialPrinterType: 'esc-pos' | 'html';
+  onSaved?: () => void;
 }) {
   const [mode, setMode] = useState<'usb' | 'network'>(initialMode);
   const [target, setTarget] = useState(initialTarget);
   const [logo, setLogo] = useState(initialLogo || '');
   const [showPrintPreview, setShowPrintPreview] = useState(initialShowPrintPreview || false);
-  const [printerType, setPrinterType] = useState<'esc-pos' | 'html'>(initialPrinterType || 'esc-pos');
+  const [printerType, setPrinterType] = useState<'esc-pos' | 'html'>(initialPrinterType);
   const [printers, setPrinters] = useState<InstalledPrinter[]>([]);
   const [scanning, setScanning] = useState(false);
   const [scanDone, setScanDone] = useState(false);
@@ -3984,6 +4000,17 @@ function PrinterSetupTab({
   const [statusMsg, setStatusMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [selectedPrinterName, setSelectedPrinterName] = useState('');
   const [logs, setLogs] = useState<any[]>([]);
+  const [checkingService, setCheckingService] = useState(false);
+  const [serviceCheck, setServiceCheck] = useState<any>(null);
+
+  // Keep local fields in sync when the saved settings load asynchronously or change
+  // after a save. useState() only captures the initial* props on first mount, so without
+  // these the printer target/mode/type would show a stale value (or revert) on remount.
+  useEffect(() => { setMode(initialMode); }, [initialMode]);
+  useEffect(() => { setTarget(initialTarget); }, [initialTarget]);
+  useEffect(() => { setLogo(initialLogo || ''); }, [initialLogo]);
+  useEffect(() => { setShowPrintPreview(initialShowPrintPreview || false); }, [initialShowPrintPreview]);
+  useEffect(() => { setPrinterType(initialPrinterType); }, [initialPrinterType]);
 
   const api = typeof window !== 'undefined' ? (window as any).electronAPI : null;
 
@@ -4027,9 +4054,8 @@ function PrinterSetupTab({
 
   const handleSelectPrinter = (printer: InstalledPrinter) => {
     setSelectedPrinterName(printer.name);
-    const detectedMode: 'usb' | 'network' = printer.isUsb ? 'usb' : 'network';
-    setMode(detectedMode);
-    // Since we now use Electron webContents print directly, we can just use the printer name!
+    setMode('usb');
+    setPrinterType('html');
     setTarget(printer.name);
   };
 
@@ -4039,8 +4065,15 @@ function PrinterSetupTab({
     setTesting(true);
     try {
       const res = await api.testPrint(target.trim(), mode, printerType);
+      // The test-print IPC persists mode/type/target before printing, so refresh
+      // the parent settings to keep them in sync with what's now on disk.
+      onSaved?.();
       if (res.success) {
-        showStatus('✓ Test print sent successfully! Check your printer.', true);
+        if (res.runtime === 'simulation') {
+          showStatus('⚠ Simulated only — no physical printer was contacted (dev/simulation runtime).', false);
+        } else {
+          showStatus(`✓ Test print sent to "${target.trim()}" (${res.stage}). Check your printer.`, true);
+        }
       } else {
         showStatus('✗ Print failed: ' + (res.error || 'Unknown error'), false);
       }
@@ -4062,6 +4095,9 @@ function PrinterSetupTab({
       const res = await api.savePrinterSettings(target.trim(), mode, logo, showPrintPreview, printerType);
       if (res.success) {
         showStatus('✓ Printer settings saved successfully!', true);
+        // Refresh the parent settings so a later remount of this tab re-seeds
+        // the fields from the freshly-saved values instead of a stale snapshot.
+        onSaved?.();
       } else {
         showStatus('✗ Save failed: ' + (res.error || 'Unknown error'), false);
       }
@@ -4069,6 +4105,21 @@ function PrinterSetupTab({
       showStatus('✗ Error: ' + err.message, false);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCheckService = async () => {
+    if (!api || !api.checkPrintService) return showStatus('Not running in Electron.', false);
+    setCheckingService(true);
+    setServiceCheck(null);
+    try {
+      const res = await api.checkPrintService();
+      setServiceCheck(res);
+      showStatus(res.serviceReady ? '✓ Print service check complete.' : '✗ Print service has an issue.', res.serviceReady);
+    } catch (err: any) {
+      showStatus('✗ Service check error: ' + err.message, false);
+    } finally {
+      setCheckingService(false);
     }
   };
 
@@ -4199,6 +4250,29 @@ function PrinterSetupTab({
             <p className={`text-[10px] mt-0.5 ${textMuted}`}>Set connection mode and printer target, then test your connection.</p>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-wider block opacity-70">Receipt Print Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['html', 'esc-pos'] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setPrinterType(type)}
+                  className={`py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition ${
+                    printerType === type
+                      ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/30'
+                      : isDark ? 'border-purple-950/30 text-purple-400/70 hover:border-purple-800/50' : 'border-slate-200 text-slate-500 hover:border-purple-300'
+                  }`}
+                >
+                  {type === 'html' ? 'Windows / HTML' : 'RAW ESC/POS'}
+                </button>
+              ))}
+            </div>
+            <p className={`text-[10px] ${textMuted}`}>
+              {printerType === 'html' ? 'Recommended for Windows-installed USB printers. Use the exact printer name.' : 'Use only for printers that support RAW ESC/POS data.'}
+            </p>
+          </div>
+
           {/* Mode Toggle */}
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase tracking-wider block opacity-70">Connection Mode</label>
@@ -4209,7 +4283,7 @@ function PrinterSetupTab({
                   id={`btn-mode-${m}`}
                   onClick={() => {
                     setMode(m);
-                    setTarget(m === 'usb' ? 'POSPrinter' : '');
+                    setTarget(m === 'usb' ? (printerType === 'html' ? '' : 'POSPrinter') : '');
                   }}
                   className={`py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition ${
                     mode === m
@@ -4223,52 +4297,23 @@ function PrinterSetupTab({
             </div>
           </div>
 
-          {/* Receipt Print Style Toggle */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase tracking-wider block opacity-70">Receipt Print Style</label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { type: 'esc-pos', label: '📄 ESC/POS (Text)', desc: 'Recommended. Native printer code, fast, correct width, auto-cut.' },
-                { type: 'html', label: '🎨 HTML (Graphic)', desc: 'Allows custom fonts & image logo, but requires manual driver scaling.' }
-              ].map((style) => (
-                <button
-                  key={style.type}
-                  id={`btn-style-${style.type}`}
-                  type="button"
-                  onClick={() => setPrinterType(style.type as 'esc-pos' | 'html')}
-                  className={`py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition ${
-                    printerType === style.type
-                      ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/30'
-                      : isDark ? 'border-purple-950/30 text-purple-400/70 hover:border-purple-800/50' : 'border-slate-200 text-slate-500 hover:border-purple-300'
-                  }`}
-                  title={style.desc}
-                >
-                  {style.label}
-                </button>
-              ))}
-            </div>
-            <p className={`text-[9px] leading-tight ${textMuted}`}>
-              {printerType === 'esc-pos' 
-                ? '✓ Selected native ESC/POS. Best for thermal receipts. Perfect fit, no missing margins, cash drawer & cutter work reliably.' 
-                : '⚠ Selected HTML. Best if you need a graphical logo, but you must set the printer properties in Windows to exactly 80mm to avoid scaling issues.'}
-            </p>
-          </div>
-
           {/* Target Input */}
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase tracking-wider block opacity-70">
-              {mode === 'usb' ? 'Windows Share Name' : 'Printer IP Address'}
+              {printerType === 'html' ? 'Installed Windows Printer Name' : mode === 'usb' ? 'Windows Share Name' : 'Printer IP Address'}
             </label>
             <input
               id="input-printer-target"
               type="text"
               value={target}
               onChange={e => setTarget(e.target.value)}
-              placeholder={mode === 'usb' ? 'e.g. POSPrinter' : 'e.g. 192.168.1.50'}
+              placeholder={printerType === 'html' ? 'e.g. POS-80-Series' : mode === 'usb' ? 'e.g. POSPrinter' : 'e.g. 192.168.1.50'}
               className={`w-full p-2.5 rounded-xl border outline-none font-mono text-xs transition ${inputClass} focus:ring-2 focus:ring-purple-500/20`}
             />
             <p className={`text-[10px] ${textMuted}`}>
-              {mode === 'usb'
+              {printerType === 'html'
+                ? 'Use the exact printer name shown in Windows Printers & Scanners.'
+                : mode === 'usb'
                 ? 'Share your USB printer in Windows Settings → Printers → Sharing tab → set share name here.'
                 : 'Enter the IP address of your network/WiFi receipt printer (port 9100 is used automatically).'}
             </p>
@@ -4339,6 +4384,15 @@ function PrinterSetupTab({
           {/* Actions */}
           <div className="flex flex-col gap-2.5 pt-1">
             <button
+              id="btn-check-service"
+              onClick={handleCheckService}
+              disabled={checkingService}
+              className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/10 disabled:opacity-40 transition flex items-center justify-center gap-2"
+            >
+              <Check className={`w-3.5 h-3.5 ${checkingService ? 'animate-pulse' : ''}`} />
+              {checkingService ? 'Checking Print Service...' : 'Check Print Service'}
+            </button>
+            <button
               id="btn-test-print"
               onClick={handleTestPrint}
               disabled={testing || !target.trim()}
@@ -4357,6 +4411,42 @@ function PrinterSetupTab({
               {saving ? 'Saving...' : 'Save Printer Settings'}
             </button>
           </div>
+
+          {/* Print Service Health Result */}
+          {serviceCheck && (
+            <div className={`mt-3 p-4 rounded-xl border text-xs ${serviceCheck.serviceReady
+              ? (isDark ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')
+              : (isDark ? 'bg-rose-500/5 border-rose-500/30' : 'bg-rose-50 border-rose-200')}`}>
+              <div className="flex items-start gap-2 mb-3">
+                <div className={`mt-0.5 shrink-0 ${serviceCheck.serviceReady ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {serviceCheck.serviceReady ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                </div>
+                <div className="min-w-0">
+                  <p className={`font-bold ${serviceCheck.serviceReady ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    {serviceCheck.serviceReady ? 'Print service is working' : 'Print service problem'}
+                  </p>
+                  <p className={`text-[11px] mt-0.5 ${textMuted}`}>{serviceCheck.summary}</p>
+                  <p className={`text-[10px] mt-1 font-mono ${textMuted}`}>
+                    runtime: {serviceCheck.runtime} · mode: {serviceCheck.mode} · type: {serviceCheck.printerType} · target: {serviceCheck.target}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {serviceCheck.checks?.map((c: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className={`mt-0.5 shrink-0 font-bold ${c.ok ? 'text-emerald-500' : c.info ? 'text-amber-500' : 'text-rose-500'}`}>
+                      {c.ok ? '✓' : c.info ? 'ℹ' : '✗'}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="font-semibold">{c.name}{c.info && !c.ok ? ' (optional)' : ''}</span>
+                      <span className={`block text-[10px] ${textMuted}`}>{c.detail}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className={`text-[9px] mt-3 break-all ${textMuted}`}>Full diagnostic trace: {serviceCheck.logPath}</p>
+            </div>
+          )}
         </div>
       </div>
 

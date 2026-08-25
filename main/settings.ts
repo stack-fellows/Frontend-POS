@@ -43,7 +43,8 @@ export interface TerminalSettings {
   printerTarget: string;
   printerLogoBase64?: string;
   showPrintPreview?: boolean;
-  printerType?: 'esc-pos' | 'html';
+  printerType: 'esc-pos' | 'html';
+  simulatePrinting?: boolean; // true = no physical printer; simulate print jobs and report success
   staff?: Staff[];
 }
 
@@ -86,7 +87,7 @@ const defaultSettings: TerminalSettings = {
   // Printer: USB via Windows shared printer named 'POSPrinter'
   printerMode: 'usb',
   printerTarget: 'POSPrinter',
-  printerType: 'esc-pos',
+  printerType: 'html',
 };
 
 export function loadSettings(): TerminalSettings {
@@ -106,6 +107,7 @@ export function loadSettings(): TerminalSettings {
       }
       if (merged.taxEnabled === undefined) merged.taxEnabled = true;
       if (merged.taxRate === undefined) merged.taxRate = 10;
+      if (merged.printerType !== 'esc-pos' && merged.printerType !== 'html') merged.printerType = 'html';
       return merged;
     }
   } catch (err) {

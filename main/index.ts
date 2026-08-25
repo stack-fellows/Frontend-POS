@@ -8,6 +8,8 @@ import { startSyncEngine, stopSyncEngine } from './sync';
 import { startEmbeddedCloudServer, stopEmbeddedCloudServer } from './cloudServer';
 import { ReceiptData, getPrintRuntime, printReceipt } from './printer';
 import { printHtmlReceipt } from './htmlPrinter';
+import { logPrint } from './logger';
+import { runPrintServiceCheck } from './printService';
 import { connectToCloudWs, disconnectCloudWs } from './cloudWs';
 import { autoUpdater } from 'electron-updater';
 
@@ -165,26 +167,28 @@ ipcMain.handle('print-receipt', async (event, { receiptData }: { receiptData: Re
   const settings = loadSettings();
   const mode = settings.printerMode || 'usb';
   const target = settings.printerTarget || 'POSPrinter';
-  const printerType = settings.printerType || 'esc-pos';
+  const printerType = settings.printerType || 'html';
   const logItem = addPrintLog(receiptData.orderNumber || 'UNKNOWN', target, mode, printerType);
-  
+
+  logPrint(`[IPC print-receipt] order=${receiptData.orderNumber || 'UNKNOWN'} runtime=${getPrintRuntime()} type=${printerType} mode=${mode} target="${target}"`);
+
   try {
-    logItem.stage = 'formatting';
-    if (settings.printerType === 'html') {
-      logItem.stage = 'html-print';
+    logItem.stage = printerType === 'html' ? 'html-print' : mode === 'network' ? 'network-send' : 'usb-send';
+    if (printerType === 'html') {
       await printHtmlReceipt(target, receiptData, settings.printerLogoBase64, settings.showPrintPreview);
     } else {
-      logItem.stage = mode === 'network' ? 'network-send' : 'usb-send';
       await printReceipt(target, receiptData, mode, settings.printerLogoBase64);
     }
     logItem.status = 'success';
     logItem.stage = 'completed';
+    logPrint(`[IPC print-receipt] SUCCESS order=${receiptData.orderNumber || 'UNKNOWN'} runtime=${logItem.runtime}`);
     return { success: true, runtime: logItem.runtime, stage: logItem.stage, diagnosticId: logItem.id };
   } catch (err: any) {
     console.error('[Electron Main IPC] Print failed:', err.message);
     logItem.status = 'error';
     logItem.stage = 'failed';
     logItem.error = err.message;
+    logPrint(`[IPC print-receipt] FAILED order=${receiptData.orderNumber || 'UNKNOWN'} error="${err.message}"`);
     return { success: false, runtime: logItem.runtime, stage: logItem.stage, diagnosticId: logItem.id, error: err.message };
   }
 });
@@ -222,8 +226,9 @@ ipcMain.handle('get-installed-printers', async () => {
 // IPC Handler: Save printer settings and send a test print
 ipcMain.handle('test-print', async (event, { target, mode, printerType }: { target: string; mode: 'usb' | 'network'; printerType?: 'esc-pos' | 'html' }) => {
   const settings = loadSettings();
-  const selectedPrinterType = printerType || settings.printerType || 'esc-pos';
+  const selectedPrinterType = printerType || settings.printerType || 'html';
   const logItem = addPrintLog('TEST-PRINT', target, mode, selectedPrinterType);
+  logPrint(`[IPC test-print] runtime=${getPrintRuntime()} type=${selectedPrinterType} mode=${mode} target="${target}"`);
   try {
     // Save the settings first
     settings.printerMode = mode;
@@ -244,18 +249,20 @@ ipcMain.handle('test-print', async (event, { target, mode, printerType }: { targ
     };
     logItem.stage = selectedPrinterType === 'html' ? 'html-print' : mode === 'network' ? 'network-send' : 'usb-send';
     if (selectedPrinterType === 'html') {
-      await printHtmlReceipt(target, testReceipt, settings.printerLogoBase64);
+      await printHtmlReceipt(target, testReceipt, settings.printerLogoBase64, settings.showPrintPreview);
     } else {
       await printReceipt(target, testReceipt, mode, settings.printerLogoBase64);
     }
     logItem.status = 'success';
     logItem.stage = 'completed';
+    logPrint(`[IPC test-print] SUCCESS runtime=${logItem.runtime} type=${selectedPrinterType} target="${target}"`);
     return { success: true, runtime: logItem.runtime, stage: logItem.stage, diagnosticId: logItem.id };
   } catch (err: any) {
     console.error('[Electron Main IPC] Test print failed:', err.message);
     logItem.status = 'error';
     logItem.stage = 'failed';
     logItem.error = err.message;
+    logPrint(`[IPC test-print] FAILED error="${err.message}"`);
     return { success: false, runtime: logItem.runtime, stage: logItem.stage, diagnosticId: logItem.id, error: err.message };
   }
 });
@@ -275,6 +282,17 @@ ipcMain.handle('save-printer-settings', async (event, { target, mode, logoBase64
     return { success: false, error: err.message };
   }
 });
+// IPC Handler: Run a real (non-simulated) preflight of the print pipeline.
+// Verifies the spooler, ESC/POS generation, spool-file access and printer
+// reachability so you can confirm the print service is healthy even with no
+// printer connected yet.
+ipcMain.handle('check-print-service', async () => {
+  const settings = loadSettings();
+  const result = await runPrintServiceCheck(settings);
+  logPrint(`[IPC check-print-service] serviceReady=${result.serviceReady} printerDetected=${result.printerDetected}`);
+  return result;
+});
+
 ipcMain.handle('close-app', async () => {
   if (mainWindow) {
     mainWindow.close();

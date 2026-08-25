@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   testPrint: (target: string, mode: string, printerType?: 'esc-pos' | 'html') => ipcRenderer.invoke('test-print', { target, mode, printerType }),
   savePrinterSettings: (target: string, mode: string, logoBase64?: string, showPrintPreview?: boolean, printerType?: 'esc-pos' | 'html') => ipcRenderer.invoke('save-printer-settings', { target, mode, logoBase64, showPrintPreview, printerType }),
   getPrintLogs: () => ipcRenderer.invoke('get-print-logs'),
+  checkPrintService: () => ipcRenderer.invoke('check-print-service'),
   closeApp: () => ipcRenderer.invoke('close-app'),
   onUpdateAvailable: (callback: (info: any) => void) => {
     ipcRenderer.removeAllListeners('update-available');

@@ -625,7 +625,7 @@ app.post('/api/settings', (req, res) => {
     if (enterpriseTenantId !== undefined) settings.enterpriseTenantId = enterpriseTenantId;
     if (printerMode !== undefined) settings.printerMode = printerMode;
     if (printerTarget !== undefined) settings.printerTarget = printerTarget;
-    if (printerType !== undefined) settings.printerType = printerType;
+    if (printerType === 'esc-pos' || printerType === 'html') settings.printerType = printerType;
 
     saveSettings(settings);
     res.json({ success: true, settings });
