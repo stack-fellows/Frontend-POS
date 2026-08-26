@@ -20,9 +20,9 @@
   --text-body: #0f172a;
 
   --bg-glass-panel: rgba(255, 255, 255, 0.85);
-  --border-glass-panel: rgba(249, 115, 22, 0.10);
+  --border-glass-panel: rgba(118, 84, 214, 0.12);
   --bg-glass-panel-interactive: rgba(255, 255, 255, 0.80);
-  --border-glass-panel-interactive: rgba(249, 115, 22, 0.08);
+  --border-glass-panel-interactive: rgba(118, 84, 214, 0.10);
   --bg-glass-panel-hover: rgba(243, 244, 246, 0.95);
 }
 
@@ -106,8 +106,8 @@ body {
 
 .glass-panel-interactive:hover {
   background: var(--bg-glass-panel-hover);
-  border-color: rgba(249, 115, 22, 0.30);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 0 0 1px rgba(249,115,22,0.15);
+  border-color: rgba(192, 75, 133, 0.32);
+  box-shadow: 0 4px 16px rgba(77, 53, 130, 0.10), 0 0 0 1px rgba(192,75,133,0.12);
   transform: translateY(-1px);
 }
 
@@ -121,8 +121,8 @@ body {
 
 /* ─── Page background ────────────────────────────────────── */
 .page-bg {
-  background: radial-gradient(ellipse at 30% 20%, rgba(249,115,22,0.06) 0%, transparent 60%),
-              radial-gradient(ellipse at 70% 80%, rgba(251,191,36,0.04) 0%, transparent 60%),
+  background: radial-gradient(ellipse at 30% 20%, rgba(118,84,214,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 80%, rgba(236,72,153,0.04) 0%, transparent 60%),
               var(--color-surface-0);
   transition: background-color 0.2s ease;
 }
@@ -167,5 +167,61 @@ nextjs-portal * {
 /* Ensure container elements do not disable inputs when errors trigger */
 body, #__next {
   pointer-events: auto !important;
+}
+
+/* Billing is intentionally limited to a white and light-pink palette. */
+.billing-light .bg-surface-0,
+.billing-light .bg-surface-50,
+.billing-light .bg-surface-100,
+.billing-light .bg-surface-200,
+.billing-light .bg-surface-300 {
+  background-color: #ffffff !important;
+}
+
+.billing-light .bg-surface-50\/50,
+.billing-light .bg-surface-100\/40,
+.billing-light .bg-surface-100\/50,
+.billing-light .bg-surface-100\/60,
+.billing-light .bg-surface-100\/80 {
+  background-color: #fff7fa !important;
+}
+
+.billing-light .bg-brand-500,
+.billing-light .bg-brand-600,
+.billing-light .bg-accent-500,
+.billing-light .bg-success-500,
+.billing-light .bg-danger-500,
+.billing-light .bg-amber-500,
+.billing-light .bg-blue-500,
+.billing-light .bg-indigo-500,
+.billing-light .bg-purple-500,
+.billing-light .bg-cyan-500 {
+  background-color: #e85d9e !important;
+}
+
+.billing-light [class*="text-brand-"],
+.billing-light [class*="text-accent-"],
+.billing-light [class*="text-success-"],
+.billing-light [class*="text-danger-"],
+.billing-light [class*="text-amber-"],
+.billing-light [class*="text-blue-"],
+.billing-light [class*="text-indigo-"],
+.billing-light [class*="text-purple-"],
+.billing-light [class*="text-cyan-"],
+.billing-light [class*="text-violet-"] {
+  color: #d94f8f !important;
+}
+
+.billing-light [class*="border-brand-"],
+.billing-light [class*="border-accent-"],
+.billing-light [class*="border-success-"],
+.billing-light [class*="border-danger-"],
+.billing-light [class*="border-amber-"],
+.billing-light [class*="border-blue-"],
+.billing-light [class*="border-indigo-"],
+.billing-light [class*="border-purple-"],
+.billing-light [class*="border-cyan-"],
+.billing-light [class*="border-violet-"] {
+  border-color: #f3d9e6 !important;
 }
 

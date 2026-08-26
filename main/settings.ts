@@ -11,6 +11,7 @@ export interface Employee {
 export interface Category {
   name: string;
   status: 'ACTIVE' | 'DISABLED';
+  imageUrl?: string;
   bgColor?: string;
   textColor?: string;
 }

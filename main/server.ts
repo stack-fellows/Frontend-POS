@@ -17,7 +17,7 @@ const appDataFolder = path.join(
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
@@ -514,7 +514,7 @@ app.get('/api/settings/categories', (req, res) => {
 
 app.post('/api/settings/categories', (req, res) => {
   try {
-    const { name, status, bgColor, textColor } = req.body;
+    const { name, status, imageUrl, bgColor, textColor } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Missing category name.' });
     }
@@ -525,7 +525,7 @@ app.post('/api/settings/categories', (req, res) => {
       return res.status(400).json({ error: 'Category already exists.' });
     }
 
-    settings.categories.push({ name, status: status || 'ACTIVE', bgColor, textColor });
+    settings.categories.push({ name, status: status || 'ACTIVE', imageUrl, bgColor, textColor });
     saveSettings(settings);
     res.json({ success: true, categories: settings.categories });
   } catch (error: any) {
@@ -536,7 +536,7 @@ app.post('/api/settings/categories', (req, res) => {
 app.put('/api/settings/categories/:oldName', async (req, res) => {
   try {
     const { oldName } = req.params;
-    const { name, status, bgColor, textColor } = req.body;
+    const { name, status, imageUrl, bgColor, textColor } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Missing category name.' });
     }
@@ -553,7 +553,7 @@ app.put('/api/settings/categories/:oldName', async (req, res) => {
       return res.status(400).json({ error: 'Category name already exists.' });
     }
 
-    settings.categories[idx] = { name, status: status || 'ACTIVE', bgColor, textColor };
+    settings.categories[idx] = { name, status: status || 'ACTIVE', imageUrl, bgColor, textColor };
     saveSettings(settings);
 
     if (oldName.toLowerCase() !== name.toLowerCase()) {
@@ -814,22 +814,20 @@ app.post('/api/orders', async (req, res) => {
     // 3. Helper: atomically generate the next order number INSIDE a transaction
     //    Uses MAX sequence lookup (not count) so gaps never cause duplicate collisions.
     const generateOrderNumber = async (tx: any): Promise<string> => {
-      // Find the most recently created order
-      const lastOrder = await tx.order.findFirst({
-        orderBy: { createdAt: 'desc' },
+      const existingOrders = await tx.order.findMany({
         select: { orderNumber: true }
       });
 
-      let nextSeq = 1;
-      if (lastOrder && lastOrder.orderNumber) {
-        // Extract the last number from the previous order (handles both old prefix formats and new plain numbers)
-        const parts = lastOrder.orderNumber.split('-');
-        const lastSeqStr = parts[parts.length - 1];
-        const lastSeq = parseInt(lastSeqStr, 10);
-        if (!isNaN(lastSeq)) {
-          nextSeq = lastSeq + 1;
+      let highestSeq = 0;
+      for (const order of existingOrders) {
+        const parts = order.orderNumber.split('-');
+        const sequence = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(sequence) && sequence > highestSeq) {
+          highestSeq = sequence;
         }
       }
+
+      const nextSeq = highestSeq + 1;
 
       // Return just the plain sequence number without any prefix or zero padding
       return String(nextSeq);

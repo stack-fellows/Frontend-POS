@@ -30,8 +30,8 @@ function buildReceiptHtml(data: ReceiptData, logoBase64?: string): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>Receipt ${escapeHtml(data.orderNumber)}</title>
 <style>
-  @page { size: 80mm auto; margin: 0; }
-  body { width: 80mm; margin: 0; padding: 4mm; box-sizing: border-box; font-family: Arial, sans-serif; font-size: 11px; color: #111; }
+  @page { size: 80mm 297mm; margin: 0; }
+  body { width: 100%; margin: 0; padding: 2mm; box-sizing: border-box; font-family: Arial, sans-serif; font-size: 11px; color: #111; }
   .center { text-align: center; } .logo { max-width: 65mm; max-height: 24mm; object-fit: contain; }
   h1 { font-size: 18px; margin: 2mm 0 1mm; } .muted { font-size: 10px; }
   hr { border: 0; border-top: 1px dashed #111; margin: 3mm 0; }
@@ -98,7 +98,7 @@ export function printHtmlReceipt(deviceName: string, data: ReceiptData, logoBase
             deviceName: target,
             printBackground: true,
             margins: { marginType: 'none' },
-            pageSize: { width: 80000, height: 250000 }
+            pageSize: { width: 80000, height: 297000 }
           }, (success, reason) => finish(success ? undefined : new Error(`Print failed: ${reason || 'unknown error'}`)));
         }, 300);
       });

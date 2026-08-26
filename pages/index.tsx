@@ -110,17 +110,13 @@ export default function POSBilling() {
   const [activeBusinessDay, setActiveBusinessDay] = useState<any>(null);
   const [activeShift, setActiveShift] = useState<any>(null);
   const [screen, setScreen] = useState<AppScreen>('DAY_CLOSED');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [appVersion, setAppVersion] = useState('');
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('pos-theme') as 'dark' | 'light';
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else {
-      setTheme('dark');
-    }
+    setTheme('light');
+    localStorage.setItem('pos-theme', 'light');
   }, []);
 
   useEffect(() => {
@@ -132,7 +128,7 @@ export default function POSBilling() {
 
   // POS state
   const [products, setProducts] = useState<any[]>([]);
-  const [categoriesList, setCategoriesList] = useState<{ name: string, status: string, bgColor?: string, textColor?: string }[]>([]);
+  const [categoriesList, setCategoriesList] = useState<{ name: string, status: string, imageUrl?: string, bgColor?: string, textColor?: string }[]>([]);
   const [modifierGroups, setModifierGroups] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedBulkItemIds, setSelectedBulkItemIds] = useState<string[]>([]);
@@ -1536,11 +1532,19 @@ export default function POSBilling() {
     return true;
   });
 
+  const fallbackProductImage = './dummy-product.svg';
+  const getProductImage = (imageUrl?: string) => {
+    if (!imageUrl) return fallbackProductImage;
+    return imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('data:image/')
+      ? imageUrl
+      : fallbackProductImage;
+  };
+
   const currentCategory = categories.find(c => c.name === selectedCategory)?.name || (categories[0]?.name || '');
   const filteredProducts = activeProducts.filter(p => p.category === currentCategory);
 
   return (
-    <div className="h-screen bg-surface-0 text-surface-700 flex flex-col overflow-hidden">
+    <div className="billing-light h-screen bg-white text-slate-800 flex flex-col overflow-hidden">
       <Head>
         <title>Billing · POS</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1557,19 +1561,19 @@ export default function POSBilling() {
       )}
 
       {/* ── Header ── */}
-      <header className="h-14 px-5 border-b border-surface-200 bg-surface-100/80 backdrop-blur-md flex justify-between items-center shrink-0">
+      <header className="h-14 px-5 border-b border-[#f3d9e6] bg-white flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">
 
-            <span className="font-semibold text-sm text-surface-700">CHIMNEY CORNER</span>
+            <span className="font-semibold text-sm text-[#4a2638]">CHIMNEY CORNER</span>
           </div>
-          <div className="h-4 w-px bg-surface-300" />
+          <div className="h-4 w-px bg-[#f3d9e6]" />
           <nav className="flex gap-1">
-            <button onClick={() => setActiveTab('POS')} className={navTabCls(activeTab === 'POS')}>Billing</button>
-            <button onClick={() => setActiveTab('KDS')} className={navTabCls(activeTab === 'KDS')}>
-              KDS {kdsOrders.length > 0 && <span className="ml-1 bg-brand-500/20 text-brand-400 px-1.5 py-0.5 rounded text-[10px] font-semibold">{kdsOrders.length}</span>}
+            <button onClick={() => setActiveTab('POS')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === 'POS' ? 'bg-[#e85d9e] text-white shadow-sm' : 'text-[#8d6678] hover:bg-[#fff0f6] hover:text-[#c33f78]'}`}>Billing</button>
+              <button onClick={() => setActiveTab('KDS')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === 'KDS' ? 'bg-[#e85d9e] text-white shadow-sm' : 'text-[#8d6678] hover:bg-[#fff0f6] hover:text-[#c33f78]'}`}>
+                KDS {kdsOrders.length > 0 && <span className="ml-1 bg-[#f9d5e5] text-[#c33f78] px-1.5 py-0.5 rounded text-[10px] font-semibold">{kdsOrders.length}</span>}
             </button>
-            <button onClick={() => setActiveTab('PAID_ORDERS')} className={navTabCls(activeTab === 'PAID_ORDERS')}>History</button>
+            <button onClick={() => setActiveTab('PAID_ORDERS')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === 'PAID_ORDERS' ? 'bg-[#e85d9e] text-white shadow-sm' : 'text-[#8d6678] hover:bg-[#fff0f6] hover:text-[#c33f78]'}`}>History</button>
           </nav>
           {activeTab === 'POS' && (
             <div className="flex gap-1 ml-1">
@@ -1649,9 +1653,9 @@ export default function POSBilling() {
               <span>{syncStatus} pending</span>
             </div>
           )}
-          <div className="flex items-center gap-1.5 text-xs font-medium bg-surface-100 border border-surface-200 px-3 py-1.5 ">
-            <User className="w-3.5 h-3.5 text-brand-500" />
-            <span className="text-surface-600">{loggedInEmployee ? loggedInEmployee.name : (activeShift ? activeShift.employeeName : 'Staff')}</span>
+          <div className="flex items-center gap-1.5 text-xs font-medium bg-[#fff7fa] border border-[#f3d9e6] px-3 py-1.5 rounded-lg">
+            <User className="w-3.5 h-3.5 text-[#d94f8f]" />
+            <span className="text-[#6d4658]">{loggedInEmployee ? loggedInEmployee.name : (activeShift ? activeShift.employeeName : 'Staff')}</span>
           </div>
           <button
             type="button"
@@ -1660,10 +1664,10 @@ export default function POSBilling() {
               setTheme(nextTheme);
               localStorage.setItem('pos-theme', nextTheme);
             }}
-            className="p-2  border border-surface-200 bg-surface-100 text-surface-500 hover:bg-surface-200 hover:text-surface-600 transition flex items-center justify-center shrink-0"
+            className="p-2 rounded-lg border border-[#f3d9e6] bg-white text-[#8d6678] hover:bg-[#fff0f6] hover:text-[#c33f78] transition flex items-center justify-center shrink-0"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+            <Sun className="w-4 h-4 text-[#d94f8f]" />
           </button>
           <button onClick={() => {
             setLoggedInEmployee(null);
@@ -1671,12 +1675,12 @@ export default function POSBilling() {
             setLoginPin('');
             setLoginError('');
           }}
-            className="p-2  border border-surface-200 bg-surface-100 text-surface-500 hover:bg-surface-200 hover:text-surface-600 transition flex items-center gap-1.5 px-3 text-xs font-medium"
+            className="p-2 rounded-lg border border-[#f3d9e6] bg-white text-[#8d6678] hover:bg-[#fff0f6] hover:text-[#c33f78] transition flex items-center gap-1.5 px-3 text-xs font-medium"
             title="Lock POS">
             <Lock className="w-4 h-4" /> Lock
           </button>
           <button onClick={() => { triggerAdminAuth(() => { setActiveTab('ADMIN'); setAdminTab('shift'); }); }}
-            className={`p-2 border text-surface-500 hover:bg-surface-200 hover:text-surface-600 transition flex items-center gap-1.5 px-3 text-xs font-medium ${activeTab === 'ADMIN' ? 'bg-brand-500/10 border-brand-500/40 text-brand-400 font-semibold' : 'bg-surface-100 border-surface-200'}`}
+            className={`p-2 rounded-lg border text-[#8d6678] hover:bg-[#fff0f6] hover:text-[#c33f78] transition flex items-center gap-1.5 px-3 text-xs font-medium ${activeTab === 'ADMIN' ? 'bg-[#fff0f6] border-[#e85d9e] text-[#c33f78] font-semibold' : 'bg-white border-[#f3d9e6]'}`}
             title="System Admin">
             <Settings className="w-4 h-4" /> Admin
           </button>
@@ -1723,21 +1727,27 @@ export default function POSBilling() {
 
       {/* ── POS WORKSPACE ── */}
       {activeTab === 'POS' && (
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden bg-[#f8f7fb] text-slate-800">
           {/* Left: Cart */}
-          <aside className="w-[35%] border-r border-surface-200 flex flex-col bg-surface-100/50 overflow-hidden shrink-0">
-            <div className="px-5 py-3 border-b border-surface-200 flex justify-between items-center shrink-0">
-              <h2 className="font-semibold text-sm text-surface-600 flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-brand-500" /> Current Order
+          <aside className="w-[35%] border-r border-[#e9e4f3] flex flex-col bg-white overflow-hidden shrink-0 shadow-[4px_0_18px_rgba(79,70,229,0.04)]">
+            <div className="px-5 py-4 border-b border-[#eeeaf6] flex justify-between items-center shrink-0">
+              <h2 className="font-bold text-sm text-slate-700 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-[#f0eafd] text-[#7654d6] flex items-center justify-center">
+                  <ShoppingCart className="w-4 h-4" />
+                </span>
+                Current Order
               </h2>
-              <span className="px-2 py-0.5 rounded bg-surface-200 text-surface-500 text-xs font-medium">{cart.length} items</span>
+              <span className="px-2.5 py-1 rounded-full bg-[#f8e8f2] text-[#c04b85] text-[10px] font-bold">{cart.length} items</span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 custom-scrollbar bg-[#fdfcff]">
               {cart.length === 0 ? (
-                <div className="h-24 flex flex-col items-center justify-center text-center text-surface-300">
-                  <ShoppingCart className="w-8 h-8 stroke-[1.5] mb-2" />
-                  <span className="text-xs">No items added</span>
+                <div className="h-32 flex flex-col items-center justify-center text-center text-slate-400">
+                  <span className="w-12 h-12 rounded-2xl bg-[#f3effc] flex items-center justify-center mb-3">
+                    <ShoppingCart className="w-6 h-6 stroke-[1.5] text-[#9b83df]" />
+                  </span>
+                  <span className="text-xs font-medium">Your order is empty</span>
+                  <span className="text-[10px] mt-1 text-slate-400">Select a product to get started</span>
                 </div>
               ) : cart.map(item => {
                 const isSel = selectedCartItemId === item.id;
@@ -1749,7 +1759,7 @@ export default function POSBilling() {
                 const displayTotal = lineTotal - da;
                 return (
                   <div key={item.id} onClick={() => setSelectedCartItemId(isSel ? null : item.id)}
-                    className={`flex justify-between items-center py-1 px-2 border cursor-pointer transition ${isSel ? 'bg-brand-500/10 border-brand-500/30' : 'bg-surface-100/40 border-surface-200 hover:bg-surface-200 hover:border-surface-300'}`}>
+                    className={`flex justify-between items-center py-2.5 px-3 rounded-xl border cursor-pointer transition ${isSel ? 'bg-[#f2edff] border-[#a991ec] shadow-sm' : 'bg-white border-[#eeeaf6] hover:border-[#d8ccf4] hover:bg-[#fcfaff]'}`}>
                     <div className="flex items-center justify-center mr-2 h-full" onClick={e => e.stopPropagation()}>
                       <input 
                         type="checkbox"
@@ -1766,13 +1776,13 @@ export default function POSBilling() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-xs text-surface-700 truncate">{item.productName}</span>
-                        <span className="text-[9px] text-surface-400 font-semibold bg-surface-200 px-1 rounded border border-surface-300/40">x{item.quantity}</span>
+                        <span className="font-semibold text-xs text-slate-700 truncate">{item.productName}</span>
+                        <span className="text-[9px] text-[#7654d6] font-bold bg-[#f0eafd] px-1.5 py-0.5 rounded-full">x{item.quantity}</span>
                         {item.isComplimentary && <span className="text-[9px] text-success-400 bg-success-100/15 px-1 rounded border border-success-400/20 font-bold">FREE</span>}
                       </div>
-                      <span className="text-[10px] text-surface-400/80 block mt-px leading-none">{item.variantName}</span>
+                      <span className="text-[10px] text-slate-400 block mt-px leading-none">{item.variantName}</span>
                       {item.modifiers.length > 0 && (
-                        <span className="text-[9px] text-surface-400 block mt-px leading-none truncate" title={item.modifiers.map(m => m.name).join(', ')}>
+                        <span className="text-[9px] text-slate-400 block mt-px leading-none truncate" title={item.modifiers.map(m => m.name).join(', ')}>
                           + {item.modifiers.map(m => m.name).join(', ')}
                         </span>
                       )}
@@ -1791,10 +1801,10 @@ export default function POSBilling() {
                       ) : item.discount ? (
                         <div className="flex items-baseline gap-1">
                           <span className="text-[10px] text-surface-400 line-through">{lineTotal.toFixed(2)}</span>
-                          <span className="font-semibold text-xs text-surface-700">{displayTotal.toFixed(2)}</span>
+                          <span className="font-semibold text-xs text-slate-700">{displayTotal.toFixed(2)}</span>
                         </div>
                       ) : (
-                        <span className="font-semibold text-xs text-surface-700">{displayTotal.toFixed(2)}</span>
+                        <span className="font-semibold text-xs text-slate-700">{displayTotal.toFixed(2)}</span>
                       )}
                       <button onClick={() => {
                         if (editingOrderId) {
@@ -1824,9 +1834,9 @@ export default function POSBilling() {
             </div>
 
             {/* Order details */}
-            <div className="px-5 py-4 border-t border-surface-200 space-y-3 shrink-0">
+            <div className="px-5 py-4 border-t border-[#eeeaf6] space-y-3 shrink-0 bg-white">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-surface-500">Order Details</span>
+                <span className="text-xs font-bold text-slate-500">Order Details</span>
                 {!!editingOrderId && <span className="flex items-center gap-1 text-[10px] text-brand-400 font-medium bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20"><Edit className="w-2.5 h-2.5" /> Edit Mode</span>}
               </div>
               <div className="grid grid-cols-3 gap-1.5">
@@ -1870,7 +1880,7 @@ export default function POSBilling() {
             </div>
 
             {/* Totals & Actions */}
-            <div className="border-t border-surface-200 px-5 py-4 bg-surface-50/50 space-y-3 shrink-0">
+            <div className="border-t border-[#eeeaf6] px-5 py-4 bg-[#faf9fd] space-y-3 shrink-0">
               {orderError && (
                 <div className="text-[10px] text-danger-400 font-medium bg-danger-50 border border-danger-100 py-1.5 px-3 text-center">
                   {orderError}
@@ -1919,9 +1929,9 @@ export default function POSBilling() {
           </aside>
 
           {/* Right: Product Grid */}
-          <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-hidden bg-[#f8f7fb]">
             {/* Active Tickets Bar */}
-            <div className="bg-surface-100/60 border-b border-surface-200 px-5 py-2.5 flex items-center gap-3 shrink-0 overflow-x-auto scrollbar-none">
+            <div className="bg-white border-b border-[#eeeaf6] px-5 py-3 flex items-center gap-3 shrink-0 overflow-x-auto scrollbar-none">
               <div className="flex items-center gap-1.5 text-[10px] font-semibold text-surface-400 uppercase tracking-wider whitespace-nowrap">
                 Tickets <span className="bg-brand-500/15 text-brand-400 px-1.5 py-0.5 rounded text-[10px]">{unpaidOrders.length}</span>
               </div>
@@ -1967,18 +1977,21 @@ export default function POSBilling() {
             </div>
 
             {/* Category bar */}
-            <div className="px-5 py-3 border-b border-surface-200 bg-surface-100/40 flex gap-2 overflow-x-auto shrink-0 scrollbar-none">
+            <div className="px-5 py-4 border-b border-[#eeeaf6] bg-white flex gap-3 overflow-x-auto shrink-0 scrollbar-none">
               {categories.map(cat => {
                 const isSelected = selectedCategory === cat.name || currentCategory === cat.name;
                 const hasCustomColor = !!cat.bgColor;
+                const categoryProduct = activeProducts.find(product => product.category.toLowerCase() === cat.name.toLowerCase());
+                const categoryImage = getProductImage(cat.imageUrl || categoryProduct?.imageUrl);
                 return (
                   <button key={cat.name} onClick={() => setSelectedCategory(cat.name)}
-                    style={hasCustomColor ? { backgroundColor: cat.bgColor, color: cat.textColor || '#fff' } : {}}
-                    className={`px-5  text-sm font-semibold whitespace-nowrap transition min-w-[120px] h-24 flex items-center justify-center ${isSelected
-                      ? (hasCustomColor ? 'shadow-xl scale-[1.02] ring-2 ring-white/20' : 'bg-brand-500 text-white shadow-brand')
-                      : (hasCustomColor ? ' hover:opacity-100 hover:scale-[1.02]' : 'bg-surface-100 border border-surface-300 text-white hover:border-brand-500/40 hover:text-brand-400')
+                    className={`relative overflow-hidden px-4 rounded-2xl text-xs font-bold whitespace-nowrap transition min-w-[132px] h-[76px] flex flex-col items-start justify-end p-3 border ${isSelected
+                      ? 'bg-[#e85d9e] border-[#e85d9e] text-white shadow-[0_8px_18px_rgba(232,93,158,0.22)]'
+                      : 'bg-white border-[#f3d9e6] text-[#6d4658] hover:border-[#e8a9c5] hover:bg-[#fff5f9]'
                       }`}>
-                    {cat.name}
+                    <img src={categoryImage} alt="" className="absolute inset-0 w-full h-full object-contain p-1 opacity-25" />
+                    <span className="relative z-10">{cat.name}</span>
+                    <span className={`relative z-10 text-[9px] mt-1 ${isSelected ? 'text-white/70' : 'text-[#b58c9e]'}`}>Browse items</span>
                   </button>
                 );
               })}
@@ -1986,17 +1999,19 @@ export default function POSBilling() {
 
             {/* Products */}
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                 {filteredProducts.map(p => {
-                  const hasCustomColor = !!p.bgColor;
                   return (
                     <button key={p.id} onClick={() => handleProductClick(p)}
-                      style={hasCustomColor ? { backgroundColor: p.bgColor, color: p.textColor || '#fff', border: 'none' } : {}}
-                      className={`p-4 text-center flex flex-col justify-center items-center h-24 group relative overflow-hidden transition-all ${hasCustomColor ? 'hover:scale-[1.02] shadow-lg hover:opacity-100' : 'glass-panel-interactive'
-                        }`}>
-                      {!hasCustomColor && <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-brand-500 to-accent-400 opacity-0 group-hover:opacity-100 transition" />}
-                      <h3 className={`font-medium text-sm transition ${hasCustomColor ? '' : ' group-hover:text-brand-400'}`}>{p.name}</h3>
-                      {p.variants?.[0] && <span className={`text-[11px] mt-1 transition ${hasCustomColor ? 'opacity-90 font-semibold' : 'text-surface-400 group-hover:text-accent-400'}`}>{Number(p.variants[0].price).toFixed(2)}</span>}
+                      className="text-left flex flex-col items-stretch h-[190px] rounded-2xl group relative overflow-hidden transition-all border bg-white border-[#f3d9e6] shadow-[0_5px_16px_rgba(180,75,125,0.06)] hover:-translate-y-1 hover:border-[#e8a9c5] hover:shadow-[0_10px_24px_rgba(232,93,158,0.16)]"
+                    >
+                      <div className="h-[124px] w-full flex items-center justify-center overflow-hidden bg-[#fff0f6]">
+                        <img src={getProductImage(p.imageUrl)} alt="" className="w-full h-full object-contain p-2 transition duration-300" />
+                      </div>
+                      <div className="flex-1 px-3.5 py-3 flex flex-col justify-between">
+                        <h3 className="font-bold text-sm leading-tight line-clamp-2 transition text-[#4a2638] group-hover:text-[#c33f78]">{p.name}</h3>
+                        {p.variants?.[0] && <span className="text-xs mt-1 text-[#d94f8f] font-bold">Rs. {Number(p.variants[0].price).toFixed(2)}</span>}
+                      </div>
                     </button>
                   );
                 })}

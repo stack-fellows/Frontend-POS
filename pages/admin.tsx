@@ -46,6 +46,7 @@ interface Employee {
 interface CategorySetting {
   name: string;
   status: 'ACTIVE' | 'DISABLED';
+  imageUrl?: string;
   bgColor?: string;
   textColor?: string;
 }
@@ -132,6 +133,24 @@ interface ShiftAudit {
   cardSales: number;
   totalSales: number;
   variance: number | null;
+}
+
+function readImageFile(file: File, onLoad: (dataUrl: string) => void, onError: (message: string) => void) {
+  if (!file.type.startsWith('image/')) {
+    onError('Please select an image file.');
+    return;
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    onError('Image must be smaller than 15MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (typeof reader.result === 'string') onLoad(reader.result);
+    else onError('Could not read the selected image.');
+  };
+  reader.onerror = () => onError('Could not read the selected image.');
+  reader.readAsDataURL(file);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -391,15 +410,11 @@ export default function AdminDashboard() {
     dashboard: true,
     settings: true
   });
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('pos-theme') as 'dark' | 'light';
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else {
-      setTheme('dark');
-    }
+    setTheme('light');
+    localStorage.setItem('pos-theme', 'light');
   }, []);
 
   useEffect(() => {
@@ -421,7 +436,7 @@ export default function AdminDashboard() {
   const [shiftsList, setShiftsList] = useState<ShiftAudit[]>([]);
   const [categories, setCategories] = useState<CategorySetting[]>([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [newCategory, setNewCategory] = useState({ name: '', status: 'ACTIVE' as 'ACTIVE' | 'DISABLED', bgColor: '', textColor: '' });
+  const [newCategory, setNewCategory] = useState({ name: '', status: 'ACTIVE' as 'ACTIVE' | 'DISABLED', imageUrl: '', bgColor: '', textColor: '' });
   const [categoryError, setCategoryError] = useState('');
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editingCategory, setEditingCategory] = useState<CategorySetting | null>(null);
@@ -450,7 +465,7 @@ export default function AdminDashboard() {
   const [showCustomRoleInput, setShowCustomRoleInput] = useState(false);
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: '', price: '', category: '', sku: '', status: 'ACTIVE', bgColor: '', textColor: '' });
+  const [newProduct, setNewProduct] = useState({ name: '', price: '', category: '', sku: '', status: 'ACTIVE', imageUrl: '', bgColor: '', textColor: '' });
   const [productError, setProductError] = useState('');
 
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -1641,12 +1656,13 @@ export default function AdminDashboard() {
           price: parseFloat(newProduct.price) || 0.0,
           sku: newProduct.sku.trim(),
           status: newProduct.status,
+          imageUrl: newProduct.imageUrl,
           bgColor: newProduct.bgColor,
           textColor: newProduct.textColor
         })
       });
       if (res.ok) {
-        setNewProduct({ name: '', price: '', category: categories[0]?.name || '', sku: '', status: 'ACTIVE', bgColor: '', textColor: '' });
+        setNewProduct({ name: '', price: '', category: categories[0]?.name || '', sku: '', status: 'ACTIVE', imageUrl: '', bgColor: '', textColor: '' });
         setEditingProduct(null);
         setIsProductModalOpen(false);
         loadAllData(apiUrl);
@@ -1686,12 +1702,13 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           name: newCategory.name.trim(),
           status: newCategory.status,
+          imageUrl: newCategory.imageUrl,
           bgColor: newCategory.bgColor,
           textColor: newCategory.textColor
         })
       });
       if (res.ok) {
-        setNewCategory({ name: '', status: 'ACTIVE', bgColor: '', textColor: '' });
+        setNewCategory({ name: '', status: 'ACTIVE', imageUrl: '', bgColor: '', textColor: '' });
         setEditingCategory(null);
         setIsCategoryModalOpen(false);
         loadAllData(apiUrl);
@@ -3443,7 +3460,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => {
                       setEditingProduct(null);
-                      setNewProduct({ name: '', price: '', category: categories[0]?.name || '', sku: '', status: 'ACTIVE', bgColor: '', textColor: '' });
+                      setNewProduct({ name: '', price: '', category: categories[0]?.name || '', sku: '', status: 'ACTIVE', imageUrl: '', bgColor: '', textColor: '' });
                       setProductError('');
                       setIsProductModalOpen(true);
                     }}
@@ -3454,7 +3471,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => {
                       setEditingCategory(null);
-                      setNewCategory({ name: '', status: 'ACTIVE', bgColor: '', textColor: '' });
+                      setNewCategory({ name: '', status: 'ACTIVE', imageUrl: '', bgColor: '', textColor: '' });
                       setCategoryError('');
                       setIsCategoryModalOpen(true);
                     }}
@@ -3518,6 +3535,7 @@ export default function AdminDashboard() {
                                     category: prod.category,
                                     sku: prod.variants[0]?.sku || '',
                                     status: prod.status || 'ACTIVE',
+                                    imageUrl: prod.imageUrl || '',
                                     bgColor: prod.bgColor || '',
                                     textColor: prod.textColor || ''
                                   });
@@ -3590,6 +3608,7 @@ export default function AdminDashboard() {
                                   setNewCategory({
                                     name: cat.name,
                                     status: cat.status,
+                                    imageUrl: cat.imageUrl || '',
                                     bgColor: cat.bgColor || '',
                                     textColor: cat.textColor || ''
                                   });
@@ -3717,6 +3736,21 @@ export default function AdminDashboard() {
                         </select>
                       </div>
 
+                      <div>
+                        <label className="block text-[10px] font-semibold opacity-70 mb-1">Product Image</label>
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden border border-surface-200 bg-pink-50 shrink-0">
+                            {newProduct.imageUrl ? <img src={newProduct.imageUrl} alt="Product preview" className="w-full h-full object-contain p-1" /> : <Image className="w-6 h-6 m-5 text-pink-300" />}
+                          </div>
+                          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) readImageFile(file, imageUrl => setNewProduct(prev => ({ ...prev, imageUrl })), setProductError);
+                            e.currentTarget.value = '';
+                          }} className={`min-w-0 flex-1 text-[10px] ${textMuted}`} />
+                        </div>
+                        <p className={`text-[9px] mt-1 ${textMuted}`}>PNG, JPG, or WebP. Maximum 15MB.</p>
+                      </div>
+
                       <div className="flex gap-4">
                         <div className="flex-1">
                           <label className="block text-[10px] font-semibold opacity-70 mb-1">Background Color</label>
@@ -3815,6 +3849,21 @@ export default function AdminDashboard() {
                           <option value="ACTIVE">Active</option>
                           <option value="DISABLED">Disabled</option>
                         </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-semibold opacity-70 mb-1">Category Image</label>
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden border border-surface-200 bg-pink-50 shrink-0">
+                            {newCategory.imageUrl ? <img src={newCategory.imageUrl} alt="Category preview" className="w-full h-full object-contain p-1" /> : <Image className="w-6 h-6 m-5 text-pink-300" />}
+                          </div>
+                          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) readImageFile(file, imageUrl => setNewCategory(prev => ({ ...prev, imageUrl })), setCategoryError);
+                            e.currentTarget.value = '';
+                          }} className={`min-w-0 flex-1 text-[10px] ${textMuted}`} />
+                        </div>
+                        <p className={`text-[9px] mt-1 ${textMuted}`}>PNG, JPG, or WebP. Maximum 15MB.</p>
                       </div>
 
                       <div className="flex gap-4">

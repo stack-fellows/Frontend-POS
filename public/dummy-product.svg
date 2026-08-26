@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">Sample product</title>
+  <desc id="desc">A pink sample product illustration for POS preview</desc>
+  <rect width="640" height="420" fill="#fff0f6"/>
+  <circle cx="530" cy="82" r="74" fill="#f9d5e5"/>
+  <circle cx="108" cy="342" r="96" fill="#fbe3ed"/>
+  <path d="M188 174h264l-24 132c-5 27-29 46-57 46H269c-28 0-52-19-57-46l-24-132Z" fill="#e85d9e"/>
+  <path d="M174 174h292c8 0 14 6 14 14v8H160v-8c0-8 6-14 14-14Z" fill="#c33f78"/>
+  <path d="M238 174c3-45 39-78 82-78s79 33 82 78" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round"/>
+  <path d="M250 215h140M258 250h124M269 285h102" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity=".8"/>
+</svg>

@@ -450,7 +450,19 @@ export function printReceiptUsb(shareName: string, receiptData: ReceiptData, log
       return;
     }
 
-    const rawBytes = formatReceiptBuffer(receiptData, logoBase64);
+    const receiptBytes = Buffer.from(formatReceipt(receiptData), 'binary');
+    const logoBuffer = logoBase64 ? convertBase64ToEscPosRaster(logoBase64, 384) : null;
+    const prefixLength = Buffer.byteLength(CMD.INIT, 'binary')
+      + (receiptData.paymentMethod === 'CASH' ? Buffer.byteLength(CMD.DRAWER_KICK, 'binary') : 0);
+    const rawBytes = logoBuffer
+      ? Buffer.concat([
+        receiptBytes.subarray(0, prefixLength),
+        Buffer.from(CMD.ALIGN_CENTER, 'binary'),
+        logoBuffer,
+        Buffer.from('\n\n', 'binary'),
+        receiptBytes.subarray(prefixLength)
+      ])
+      : receiptBytes;
     logPrint(`[USB] ESC/POS payload=${rawBytes.length} bytes`);
 
     if (getPrintRuntime() === 'simulation') {
